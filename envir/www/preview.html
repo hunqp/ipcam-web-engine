@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Camera Configuration</title>
+	<style>
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
+		body {
+			min-height: 100vh;
+			background: #f2f2f2;
+			color: #555;
+			font-size: 12px;
+			overflow: hidden;
+		}
+
+		.camera-ui {
+			width: 100vw;
+			min-height: 100vh;
+			background: #fff;
+		}
+
+		.appbar {
+			height: 39px;
+			display: flex;
+			align-items: stretch;
+			background: #262626;
+		}
+
+		.logo {
+			width: 212px;
+			padding-left: 23px;
+			display: flex;
+			align-items: center;
+			color: #f1212b;
+			font-size: 19px;
+			font-style: italic;
+			font-weight: 800;
+			letter-spacing: -1px;
+		}
+
+		.logo span {
+			color: #bfc0c0;
+			margin-left: 1px;
+		}
+
+		.mainnav {
+			display: flex;
+			flex: 1;
+		}
+
+		.logout {
+			width: 96px;
+			border: 0;
+			border-left: 1px solid rgba(255,255,255,.08);
+			background: #1f1f1f;
+			color: #fff;
+			font-size: 12px;
+			font-weight: bold;
+			cursor: pointer;
+		}
+
+		.logout:hover,
+		.logout:disabled {
+			background: #3a3a3a;
+		}
+
+		.logout:disabled {
+			cursor: default;
+			opacity: .75;
+		}
+
+		.navitem {
+			min-width: 118px;
+			flex: 1;
+			border: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: transparent;
+			color: #fff;
+			font-size: 13px;
+			border-left: 1px solid rgba(255,255,255,.04);
+			cursor: pointer;
+		}
+
+		.navitem.active {
+			background: #e20f1d;
+			font-weight: bold;
+		}
+
+		.content {
+			display: flex;
+			height: calc(100vh - 39px);
+			min-height: 306px;
+		}
+
+		.sidebar {
+			width: 212px;
+			background: #ededed;
+			border-right: 1px solid #e6e6e6;
+		}
+
+		.side-section {
+			padding: 16px 0 0;
+			background: #e8e8e8;
+		}
+
+		.side-section.lower {
+			margin-top: 3px;
+			padding-top: 5px;
+			background: #ededed;
+			border-top: 1px solid #e1e1e1;
+		}
+
+		.side-item,
+		.sub-item {
+			width: 100%;
+			height: 30px;
+			border: 0;
+			display: flex;
+			align-items: center;
+			background: transparent;
+			color: #5d5d5d;
+			font-weight: bold;
+			font-size: 12px;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.side-item {
+			padding-left: 31px;
+			gap: 15px;
+		}
+
+		.icon {
+			width: 16px;
+			text-align: center;
+			color: #777;
+			font-size: 17px;
+		}
+
+		.sub-item {
+			padding-left: 59px;
+			background: #f5f5f5;
+			position: relative;
+		}
+
+		.sub-item.active {
+			color: #d51b28;
+		}
+
+		.sub-item.active::before {
+			content: "";
+			position: absolute;
+			left: 9px;
+			top: 0;
+			width: 3px;
+			height: 30px;
+			background: #e20f1d;
+		}
+
+		.panel {
+			flex: 1;
+			background: #fff;
+			min-width: 0;
+		}
+
+		.port-tabs {
+			height: 38px;
+			display: flex;
+			align-items: flex-end;
+			padding-left: 24px;
+			border-bottom: 1px solid #d3d3d3;
+		}
+
+		.port-tab {
+			height: 28px;
+			min-width: 61px;
+			border: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: transparent;
+			color: #777;
+			font-weight: bold;
+			font-size: 12px;
+			position: relative;
+			cursor: pointer;
+		}
+
+		.port-tab.active {
+			color: #d71926;
+		}
+
+		.port-tab.active::after {
+			content: "";
+			position: absolute;
+			left: 7px;
+			right: 7px;
+			bottom: -1px;
+			height: 2px;
+			background: #d71926;
+		}
+
+		.form {
+			padding: 18px 0 0 39px;
+			width: 416px;
+		}
+
+		.row {
+			display: grid;
+			grid-template-columns: 147px 194px 20px;
+			align-items: center;
+			height: 29px;
+			column-gap: 8px;
+		}
+
+		label {
+			color: #3f3f3f;
+			font-weight: bold;
+			font-size: 12px;
+		}
+
+		input {
+			width: 194px;
+			height: 18px;
+			border: 1px solid #9f9f9f;
+			padding: 0 4px;
+			color: #333;
+			font-size: 12px;
+			line-height: 18px;
+			box-shadow: inset 0 1px 1px rgba(0,0,0,.1);
+		}
+
+		input.invalid {
+			border-color: #d71926;
+			background: #fff8f8;
+		}
+
+		.ok {
+			width: 14px;
+			height: 14px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 50%;
+			background: #1aa34a;
+			color: #fff;
+			font-size: 11px;
+			font-weight: bold;
+			line-height: 1;
+		}
+
+		.ok.invalid {
+			background: #d71926;
+		}
+
+		.status {
+			height: 16px;
+			margin-top: 8px;
+			color: #1f8d45;
+			font-weight: bold;
+		}
+
+		.status.error {
+			color: #d71926;
+		}
+
+		.save {
+			margin-top: 16px;
+			width: 161px;
+			height: 29px;
+			border: none;
+			background: #df1623;
+			color: #fff;
+			font-size: 12px;
+			font-weight: bold;
+			cursor: pointer;
+		}
+
+		.save::before {
+			content: "\25A3";
+			margin-right: 8px;
+			font-size: 14px;
+			vertical-align: -1px;
+		}
+
+		.placeholder {
+			padding: 24px 40px;
+			color: #555;
+			font-weight: bold;
+		}
+
+		.placeholder-title {
+			margin-bottom: 10px;
+			color: #333;
+			font-size: 14px;
+		}
+
+		.snapshot {
+			padding: 20px 24px;
+			height: 100%;
+		}
+
+		.snapshot img {
+			display: block;
+			width: min(100%, 920px);
+			max-height: calc(100vh - 95px);
+			object-fit: contain;
+			border: 1px solid #d0d0d0;
+			background: #111;
+		}
+
+		.live-video {
+			padding: 20px 24px;
+			height: 100%;
+			background: #fff;
+		}
+
+		.live-video video {
+			display: block;
+			width: min(100%, 960px);
+			max-height: calc(100vh - 95px);
+			background: #111;
+			border: 1px solid #d0d0d0;
+		}
+
+		.playback {
+			display: grid;
+			grid-template-columns: minmax(420px, 1fr) 318px;
+			gap: 20px;
+			align-items: start;
+			height: 100%;
+			padding: 20px 24px;
+			background: #f7f8fa;
+		}
+
+		.playback-player {
+			min-width: 0;
+			border: 1px solid #cfd5dc;
+			background: #fff;
+			box-shadow: 0 8px 22px rgba(30, 42, 56, .08);
+		}
+
+		.player-head {
+			min-height: 42px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 14px;
+			padding: 0 14px;
+			border-bottom: 1px solid #e2e6ea;
+			background: #fff;
+		}
+
+		.player-title {
+			min-width: 0;
+			color: #2f3439;
+			font-size: 13px;
+			font-weight: bold;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.player-badge {
+			flex: 0 0 auto;
+			min-width: 74px;
+			height: 22px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border: 1px solid #d7dce1;
+			background: #f5f7f9;
+			color: #646d75;
+			font-size: 11px;
+			font-weight: bold;
+		}
+
+		.video-stage {
+			position: relative;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			min-height: 260px;
+			padding: 16px;
+			background: #151a20;
+		}
+
+		.playback-player video {
+			width: 100%;
+			max-height: calc(100vh - 185px);
+			background: #080a0d;
+			border: 1px solid rgba(255,255,255,.08);
+			box-shadow: 0 10px 28px rgba(0,0,0,.32);
+		}
+
+		.player-foot {
+			min-height: 37px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 0 14px;
+			border-top: 1px solid #e2e6ea;
+			background: #fbfcfd;
+			color: #68717a;
+			font-size: 11px;
+		}
+
+		.player-foot span:first-child {
+			min-width: 0;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.player-foot span:last-child {
+			flex: 0 0 auto;
+			font-weight: bold;
+		}
+
+		.playback-list {
+			min-width: 0;
+			border: 1px solid #cfd5dc;
+			background: #fff;
+			box-shadow: 0 8px 22px rgba(30, 42, 56, .08);
+		}
+
+		.playback-title {
+			height: 42px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 0 13px;
+			border-bottom: 1px solid #e2e6ea;
+			color: #2f3439;
+			font-size: 13px;
+			font-weight: bold;
+		}
+
+		.record-count {
+			color: #747d86;
+			font-size: 11px;
+			font-weight: normal;
+		}
+
+		.record-list {
+			max-height: calc(100vh - 144px);
+			overflow-y: auto;
+			background: #fff;
+		}
+
+		.record-item {
+			width: 100%;
+			min-height: 54px;
+			display: grid;
+			grid-template-columns: 1fr 46px;
+			gap: 10px;
+			align-items: center;
+			padding: 9px 10px 9px 13px;
+			border: 0;
+			border-bottom: 1px solid #eef1f4;
+			background: #fff;
+			color: #222;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.record-item:last-child {
+			border-bottom: none;
+		}
+
+		.record-item.active {
+			background: #fff4f5;
+			box-shadow: inset 3px 0 0 #d71926;
+		}
+
+		.record-item:hover {
+			background: #f7fafc;
+		}
+
+		.record-item.active:hover {
+			background: #fff4f5;
+		}
+
+		.record-name {
+			display: block;
+			color: #252b31;
+			font-size: 12px;
+			font-weight: bold;
+			line-height: 1.25;
+			word-break: break-word;
+		}
+
+		.record-meta {
+			display: block;
+			margin-top: 4px;
+			color: #79838d;
+			font-size: 11px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.record-play {
+			width: 31px;
+			height: 31px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			justify-self: end;
+			border: 1px solid #cbd2d9;
+			background: #f8fafb;
+			color: #d71926;
+			font-size: 12px;
+			font-weight: bold;
+			cursor: pointer;
+		}
+
+		.record-item:hover .record-play,
+		.record-item.active .record-play {
+			border-color: #d71926;
+			background: #d71926;
+			color: #fff;
+		}
+
+		@media (max-width: 680px) {
+			.camera-ui {
+				width: 100%;
+				min-width: 320px;
+			}
+
+			.logo,
+			.sidebar {
+				width: 178px;
+			}
+
+			.navitem {
+				width: auto;
+				min-width: 94px;
+			}
+
+			.content {
+				overflow-x: auto;
+			}
+
+			.panel {
+				min-width: 468px;
+			}
+
+			.playback {
+				grid-template-columns: 1fr;
+				padding: 14px;
+			}
+
+			.record-list {
+				max-height: 220px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="camera-ui">
+		<nav class="appbar" aria-label="Camera navigation">
+			<div class="logo">HIK<span>VISION</span></div>
+			<div class="mainnav">
+				<button class="navitem" type="button" data-view="Live View">Live View</button>
+				<button class="navitem" type="button" data-view="Playback">Playback</button>
+				<button class="navitem" type="button" data-view="Picture">Picture</button>
+				<button class="navitem active" type="button" data-view="Configuration">Configuration</button>
+			</div>
+			<button class="logout" id="logoutBtn" type="button">Logout</button>
+		</nav>
+
+		<main class="content">
+			<aside class="sidebar" aria-label="Configuration menu">
+				<div class="side-section">
+					<button class="side-item" type="button" data-section="Local"><span class="icon">&#9635;</span>Local</button>
+					<button class="side-item" type="button" data-section="System"><span class="icon">&#9636;</span>System</button>
+					<button class="side-item" type="button" data-section="Network"><span class="icon">&#9673;</span>Network</button>
+					<button class="sub-item active" type="button" data-section="Basic Settings">Basic Settings</button>
+					<button class="sub-item" type="button" data-section="Advanced Settings">Advanced Settings</button>
+				</div>
+				<div class="side-section lower">
+					<button class="side-item" type="button" data-section="Video/Audio"><span class="icon">&#9836;</span>Video/Audio</button>
+					<button class="side-item" type="button" data-section="Image"><span class="icon">&#9639;</span>Image</button>
+					<button class="side-item" type="button" data-section="Event"><span class="icon">&#9636;</span>Event</button>
+					<button class="side-item" type="button" data-section="Storage"><span class="icon">&#9635;</span>Storage</button>
+				</div>
+			</aside>
+
+			<section class="panel" aria-label="Port settings">
+				<div class="port-tabs">
+					<button class="port-tab" type="button" data-tab="TCP/IP">TCP/IP</button>
+					<button class="port-tab" type="button" data-tab="DDNS">DDNS</button>
+					<button class="port-tab" type="button" data-tab="PPPoE">PPPoE</button>
+					<button class="port-tab active" type="button" data-tab="Port">Port</button>
+					<button class="port-tab" type="button" data-tab="NAT">NAT</button>
+				</div>
+
+				<form class="form" id="portForm">
+					<div class="row">
+						<label for="http">HTTP Port</label>
+						<input id="http" name="http" type="number" min="1" max="65535" value="80" />
+						<span class="ok">✓</span>
+					</div>
+					<div class="row">
+						<label for="rtsp">RTSP Port</label>
+						<input id="rtsp" name="rtsp" type="number" min="1" max="65535" value="1554" />
+						<span class="ok">✓</span>
+					</div>
+					<div class="row">
+						<label for="https">HTTPS Port</label>
+						<input id="https" name="https" type="number" min="1" max="65535" value="443" />
+						<span class="ok">✓</span>
+					</div>
+					<div class="row">
+						<label for="server">Server Port</label>
+						<input id="server" name="server" type="number" min="1" max="65535" value="8000" />
+						<span class="ok">✓</span>
+					</div>
+					<div class="status" id="status" role="status" aria-live="polite"></div>
+					<button class="save" type="submit">Save</button>
+				</form>
+			</section>
+		</main>
+	</div>
+	<script>
+		const navItems = document.querySelectorAll(".navitem");
+		const sideItems = document.querySelectorAll(".side-item, .sub-item");
+		const portTabs = document.querySelectorAll(".port-tab");
+		const panel = document.querySelector(".panel");
+		const form = document.getElementById("portForm");
+		const logoutBtn = document.getElementById("logoutBtn");
+		const portHtml = form.outerHTML;
+		const configHtml = panel.innerHTML;
+		const recordFolder = "/records/";
+		const playbackHtml = `
+			<div class="playback">
+				<div class="playback-player">
+					<div class="player-head">
+						<div class="player-title" id="playbackCurrent">Select a recording</div>
+						<div class="player-badge">MP4</div>
+					</div>
+					<div class="video-stage">
+						<video id="playbackVideo" controls autoplay muted playsinline>
+							<source id="playbackSource" src="" type="video/mp4">
+							Your browser does not support HTML5 video.
+						</video>
+					</div>
+					<div class="player-foot">
+						<span id="playbackPath">No file selected</span>
+						<span id="playbackState">Ready</span>
+					</div>
+				</div>
+				<div class="playback-list">
+					<div class="playback-title">
+						<span>Recorded files</span>
+						<span class="record-count" id="recordCount">0 files</span>
+					</div>
+					<div class="record-list" id="recordList">
+						<div class="placeholder"><div class="placeholder-title">Loading</div><div>Loading recorded files from ${recordFolder}</div></div>
+					</div>
+				</div>
+			</div>`;
+
+		function setActive(items, target) {
+			items.forEach((item) => item.classList.toggle("active", item === target));
+		}
+
+		function showPlaceholder(title) {
+			panel.innerHTML = '<div class="placeholder"><div class="placeholder-title">' + title + '</div><div>Settings panel is ready.</div></div>';
+		}
+
+		function showSnapshot() {
+			panel.innerHTML = '<div class="snapshot"><img src="/api/v1/media/snapshot?image=' + Date.now() + '" alt="Camera snapshot" /></div>';
+		}
+
+		function showLiveVideo() {
+			panel.innerHTML = '<div class="live-video"><video src="/livestream.mp4" controls autoplay muted playsinline></video></div>';
+		}
+
+		function showPlayback() {
+			panel.innerHTML = playbackHtml;
+			loadPlaybackList();
+		}
+
+		async function loadPlaybackList() {
+			const listRoot = panel.querySelector("#recordList");
+			if (!listRoot) {
+				return;
+			}
+			listRoot.innerHTML = '<div class="placeholder"><div class="placeholder-title">Loading</div><div>Loading recorded files...</div></div>';
+			let files = [];
+			try {
+				files = await fetchRecordIndex();
+			} catch (error) {
+				listRoot.innerHTML = '<div class="placeholder"><div class="placeholder-title">Playback error</div><div>' + error.message + '</div></div>';
+				return;
+			}
+			if (!files.length) {
+				listRoot.innerHTML = '<div class="placeholder"><div class="placeholder-title">No recordings</div><div>No .mp4 files were found in the records folder.</div></div>';
+				return;
+			}
+			renderRecordList(files);
+			selectPlaybackFile(files[0]);
+		}
+
+		async function fetchRecordIndex() {
+			const jsonUrl = recordFolder + "index.json";
+			try {
+				const res = await fetch(jsonUrl, { cache: "no-store" });
+				if (res.ok) {
+					const json = await res.json();
+					return Array.isArray(json) ? json.filter((name) => name.endsWith(".mp4")) : [];
+				}
+			} catch (e) {
+				// fallback to directory listing
+			}
+			const res = await fetch(recordFolder, { cache: "no-store" });
+			if (!res.ok) {
+				throw new Error("Unable to load records directory.");
+			}
+			const html = await res.text();
+			return parseRecordListing(html);
+		}
+
+		function parseRecordListing(html) {
+			const doc = new DOMParser().parseFromString(html, "text/html");
+			const urls = Array.from(doc.querySelectorAll("a[href]")).map((a) => a.getAttribute("href"));
+			return urls
+				.map((href) => {
+					try {
+						return decodeURIComponent(href);
+					} catch {
+						return href;
+					}
+				})
+				.filter((name) => name && name.endsWith(".mp4"))
+				.filter((name, index, arr) => arr.indexOf(name) === index)
+				.sort();
+		}
+
+		function renderRecordList(files) {
+			const listRoot = panel.querySelector("#recordList");
+			const count = panel.querySelector("#recordCount");
+			if (count) {
+				count.textContent = files.length + (files.length === 1 ? " file" : " files");
+			}
+			listRoot.innerHTML = "";
+			files.forEach((file) => {
+				const item = document.createElement("button");
+				item.className = "record-item";
+				item.type = "button";
+				item.dataset.file = file;
+				const text = document.createElement("span");
+				const name = document.createElement("span");
+				const meta = document.createElement("span");
+				const play = document.createElement("span");
+				name.className = "record-name";
+				meta.className = "record-meta";
+				play.className = "record-play";
+				name.textContent = cleanRecordName(file);
+				meta.textContent = recordFolder + file;
+				play.textContent = "▶";
+				text.appendChild(name);
+				text.appendChild(meta);
+				item.appendChild(text);
+				item.appendChild(play);
+				item.addEventListener("click", () => selectPlaybackFile(file));
+				listRoot.appendChild(item);
+			});
+		}
+
+		function cleanRecordName(filename) {
+			return filename.split("/").filter(Boolean).pop() || filename;
+		}
+
+		function selectPlaybackFile(filename) {
+			const listRoot = panel.querySelector("#recordList");
+			if (!listRoot) {
+				return;
+			}
+			listRoot.querySelectorAll(".record-item").forEach((item) => {
+				item.classList.toggle("active", item.dataset.file === filename);
+			});
+			const source = panel.querySelector("#playbackSource");
+			const video = panel.querySelector("#playbackVideo");
+			if (!source || !video) {
+				return;
+			}
+			const current = panel.querySelector("#playbackCurrent");
+			const path = panel.querySelector("#playbackPath");
+			const state = panel.querySelector("#playbackState");
+			if (current) {
+				current.textContent = cleanRecordName(filename);
+			}
+			if (path) {
+				path.textContent = recordFolder + filename;
+			}
+			if (state) {
+				state.textContent = "Loading";
+			}
+			source.src = recordFolder + encodeURIComponent(filename);
+			video.load();
+			video.play().catch(() => {
+				const currentState = panel.querySelector("#playbackState");
+				if (currentState) {
+					currentState.textContent = "Ready";
+				}
+			});
+			video.oncanplay = () => {
+				const currentState = panel.querySelector("#playbackState");
+				if (currentState) {
+					currentState.textContent = "Ready";
+				}
+			};
+			video.onplaying = () => {
+				const currentState = panel.querySelector("#playbackState");
+				if (currentState) {
+					currentState.textContent = "Playing";
+				}
+			};
+			video.onpause = () => {
+				const currentState = panel.querySelector("#playbackState");
+				if (currentState) {
+					currentState.textContent = "Paused";
+				}
+			};
+			video.onerror = () => {
+				const currentState = panel.querySelector("#playbackState");
+				if (currentState) {
+					currentState.textContent = "Error";
+				}
+			};
+		}
+
+		function bindPortForm() {
+			const currentForm = document.getElementById("portForm");
+			if (!currentForm) {
+				return;
+			}
+			const currentStatus = document.getElementById("status");
+			const inputs = currentForm.querySelectorAll("input");
+
+			function validateInput(input) {
+				const value = Number(input.value);
+				const ok = Number.isInteger(value) && value >= 1 && value <= 65535;
+				input.classList.toggle("invalid", !ok);
+				input.nextElementSibling.classList.toggle("invalid", !ok);
+				input.nextElementSibling.textContent = ok ? "✓" : "!";
+				return ok;
+			}
+
+			inputs.forEach((input) => {
+				input.addEventListener("input", () => {
+					validateInput(input);
+					currentStatus.textContent = "";
+					currentStatus.classList.remove("error");
+				});
+			});
+
+			currentForm.addEventListener("submit", async (event) => {
+				event.preventDefault();
+				const isValid = Array.from(inputs).every(validateInput);
+				if (!isValid) {
+					currentStatus.classList.add("error");
+					currentStatus.textContent = "Port range must be 1 to 65535.";
+					return;
+				}
+
+				currentStatus.classList.remove("error");
+				currentStatus.textContent = "Saving...";
+
+				try {
+					const body = {
+						http: Number(currentForm.http.value),
+						rtsp: Number(currentForm.rtsp.value),
+						https: Number(currentForm.https.value),
+						server: Number(currentForm.server.value)
+					};
+					const res = await fetch("/api/v1/network/ports", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json"
+						},
+						body: JSON.stringify(body)
+					});
+					const data = await res.json();
+					currentStatus.classList.toggle("error", !data.ok);
+					currentStatus.textContent = data.ok ? "Saved successfully." : (data.error || "Save failed.");
+				} catch (error) {
+					currentStatus.classList.add("error");
+					currentStatus.textContent = "Save failed.";
+				}
+			});
+		}
+
+		navItems.forEach((item) => {
+			item.addEventListener("click", () => {
+				setActive(navItems, item);
+				if (item.dataset.view === "Configuration") {
+					panel.innerHTML = configHtml;
+					document.querySelectorAll(".port-tab").forEach(bindPortTab);
+					bindPortForm();
+					return;
+				}
+				if (item.dataset.view === "Live View") {
+					showLiveVideo();
+					return;
+				}
+				if (item.dataset.view === "Picture") {
+					showSnapshot();
+					return;
+				}
+				if (item.dataset.view === "Playback") {
+					showPlayback();
+					return;
+				}
+				showPlaceholder(item.dataset.view);
+			});
+		});
+
+		sideItems.forEach((item) => {
+			item.addEventListener("click", () => {
+				setActive(sideItems, item);
+				if (item.dataset.section === "Basic Settings") {
+					panel.innerHTML = '<div class="port-tabs"><button class="port-tab" type="button" data-tab="TCP/IP">TCP/IP</button><button class="port-tab" type="button" data-tab="DDNS">DDNS</button><button class="port-tab" type="button" data-tab="PPPoE">PPPoE</button><button class="port-tab active" type="button" data-tab="Port">Port</button><button class="port-tab" type="button" data-tab="NAT">NAT</button></div>' + portHtml;
+					bindPortForm();
+					document.querySelectorAll(".port-tab").forEach(bindPortTab);
+					return;
+				}
+				showPlaceholder(item.dataset.section);
+			});
+		});
+
+		function bindPortTab(tab) {
+			tab.addEventListener("click", () => {
+				setActive(document.querySelectorAll(".port-tab"), tab);
+				if (tab.dataset.tab === "Port") {
+					const existingForm = panel.querySelector(".form");
+					const placeholder = panel.querySelector(".placeholder");
+					if (existingForm) {
+						existingForm.outerHTML = portHtml;
+					} else if (placeholder) {
+						placeholder.outerHTML = portHtml;
+					}
+					bindPortForm();
+					return;
+				}
+				const existingForm = panel.querySelector(".form");
+				if (existingForm) {
+					existingForm.outerHTML = '<div class="placeholder"><div class="placeholder-title">' + tab.dataset.tab + '</div><div>Settings panel is ready.</div></div>';
+				} else {
+					const placeholder = panel.querySelector(".placeholder");
+					if (placeholder) {
+						placeholder.innerHTML = '<div class="placeholder-title">' + tab.dataset.tab + '</div><div>Settings panel is ready.</div>';
+					}
+				}
+			});
+		}
+
+		portTabs.forEach(bindPortTab);
+		bindPortForm();
+
+		logoutBtn.addEventListener("click", async () => {
+			logoutBtn.disabled = true;
+			logoutBtn.textContent = "Logging out";
+
+			try {
+				const res = await fetch("/api/v1/user/logout", {
+					method: "POST",
+					cache: "no-store"
+				});
+				const data = await res.json().catch(() => ({}));
+				window.location.href = (data.data && data.data.redirect) || "/login";
+			} catch (error) {
+				window.location.href = "/login";
+			}
+		});
+	</script>
+</body>
+</html>

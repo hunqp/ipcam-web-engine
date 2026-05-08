@@ -1,0 +1,12 @@
+[DEBUG][2026-05-08 10:36:08] Method: GET
+[DEBUG][2026-05-08 10:36:08] URI   : /login
+[DEBUG][2026-05-08 10:36:08] Path  : /login
+[DEBUG][2026-05-08 10:36:08] API: /login
+[DEBUG][2026-05-08 11:15:55] Method: GET
+[DEBUG][2026-05-08 11:15:55] URI   : /preview
+[DEBUG][2026-05-08 11:15:55] Path  : /preview
+[DEBUG][2026-05-08 11:15:55] API: /preview
+[DEBUG][2026-05-08 11:15:55] Method: GET
+[DEBUG][2026-05-08 11:15:55] URI   : /login
+[DEBUG][2026-05-08 11:15:55] Path  : /login
+[DEBUG][2026-05-08 11:15:55] API: /login

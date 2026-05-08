@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Camera Dashboard Login</title>
+	<style>
+	* {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+		font-family: Arial, Helvetica, sans-serif;
+	}
+
+	body {
+		min-height: 100vh;
+		background: #f3f3f3;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.login-page {
+		width: 100%;
+		min-height: 100vh;
+		position: relative;
+		overflow: hidden;
+		background:
+		linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.62), rgba(255,255,255,0.9)),
+		url("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80") center bottom / cover no-repeat;
+	}
+
+	.login-page::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(to bottom, #f7f7f7 0%, rgba(255,255,255,0.2) 48%, #f8f8f8 100%);
+		z-index: 0;
+	}
+
+	.lens {
+		position: absolute;
+		left: 29%;
+		top: 31%;
+		width: 280px;
+		height: 280px;
+		border-radius: 50%;
+		z-index: 1;
+		background:
+		radial-gradient(circle at 43% 42%, rgba(255,255,255,0.75) 0 9%, rgba(77,178,145,0.55) 10% 18%, transparent 19%),
+		radial-gradient(circle at 60% 58%, #06141a 0 14%, #102832 15% 28%, transparent 29%),
+		radial-gradient(circle at 45% 45%, transparent 0 36%, rgba(29,213,136,0.9) 37% 39%, transparent 40%),
+		radial-gradient(circle at 58% 43%, transparent 0 48%, rgba(209,44,75,0.85) 49% 52%, transparent 53%),
+		radial-gradient(circle, #111 0 45%, #202f38 48% 57%, #050505 58% 71%, #222 72% 100%);
+		box-shadow:
+		0 20px 32px rgba(0,0,0,0.28),
+		inset -24px -18px 42px rgba(0,0,0,0.8),
+		inset 22px 18px 36px rgba(255,255,255,0.18);
+	}
+
+	.lens::before {
+		content: "";
+		position: absolute;
+		inset: 42px;
+		border-radius: 50%;
+		border: 7px solid rgba(255,255,255,0.16);
+		box-shadow: inset 0 0 32px rgba(0,0,0,0.9);
+	}
+
+	.lens::after {
+		content: "";
+		position: absolute;
+		width: 76px;
+		height: 42px;
+		left: 44px;
+		top: 58px;
+		border-radius: 50%;
+		background: rgba(255,255,255,0.38);
+		transform: rotate(-27deg);
+		filter: blur(1px);
+	}
+
+	.city-line {
+		position: absolute;
+		left: 0;
+		bottom: 17%;
+		width: 100%;
+		height: 210px;
+		z-index: 0;
+		opacity: 0.45;
+		background:
+		linear-gradient(to top, rgba(120,120,120,.28), transparent 14%),
+		repeating-linear-gradient(to right, transparent 0 22px, rgba(90,90,90,.35) 23px 25px, transparent 26px 42px);
+		mask-image: linear-gradient(to right, transparent, black 7%, black 93%, transparent);
+	}
+
+	.city-line::before {
+		content: "";
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: 100%;
+		height: 100%;
+		background:
+		linear-gradient(to top, rgba(70,70,70,.7) 0 22%, transparent 23%) 0 100% / 60px 140px repeat-x,
+		linear-gradient(to top, rgba(90,90,90,.55) 0 35%, transparent 36%) 20px 100% / 90px 190px repeat-x,
+		linear-gradient(to top, rgba(105,105,105,.5) 0 48%, transparent 49%) 55px 100% / 110px 210px repeat-x;
+		clip-path: polygon(0 70%, 2% 68%, 3% 30%, 5% 32%, 6% 76%, 8% 75%, 9% 45%, 11% 42%, 13% 78%, 15% 76%, 16% 40%, 18% 38%, 19% 75%, 22% 76%, 23% 56%, 25% 52%, 27% 76%, 30% 75%, 31% 44%, 33% 42%, 34% 74%, 37% 76%, 39% 50%, 41% 48%, 42% 76%, 100% 76%, 100% 100%, 0 100%);
+	}
+
+	.login-card {
+		position: absolute;
+		top: 17%;
+		right: 9%;
+		z-index: 2;
+		width: 380px;
+		padding: 78px 34px 34px;
+		background: rgba(255,255,255,0.96);
+		border: 1px solid #e0e0e0;
+		border-top: 3px solid #d31625;
+		box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+	}
+
+	.field {
+		position: relative;
+		margin-bottom: 14px;
+	}
+
+	input {
+		width: 100%;
+		height: 36px;
+		padding: 0 12px;
+		width: 100%;
+		height: 36px;
+		padding: 0 38px;
+		border: 1px solid #cfcfcf;
+		color: #333;
+		outline: none;
+		font-size: 14px;
+		background: #fff;
+		box-shadow: inset 0 1px 2px rgba(0,0,0,.04);
+	}
+
+	input:focus {
+		border-color: #60a8c8;
+		box-shadow: 0 0 3px rgba(96,168,200,.8);
+	}
+
+	.password-arrow {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: #8aa1aa;
+		font-size: 15px;
+	}
+
+	.forgot {
+		display: block;
+		text-align: right;
+		margin: 6px 0 13px;
+		font-size: 13px;
+		color: #777;
+		text-decoration: underline;
+	}
+
+	.login-btn {
+		width: 100%;
+		height: 39px;
+		border: none;
+		border-radius: 3px;
+		background: #e31825;
+		color: white;
+		font-weight: bold;
+		cursor: pointer;
+		box-shadow: 0 2px 4px rgba(0,0,0,.18);
+	}
+
+	.login-btn:hover {
+		background: #c91420;
+	}
+
+	@media (max-width: 900px) {
+		.lens {
+			left: 12%;
+			top: 22%;
+			width: 220px;
+			height: 220px;
+		}
+
+		.login-card {
+			right: 5%;
+			width: 340px;
+		}
+	}
+
+	@media (max-width: 700px) {
+		.lens {
+			opacity: 0.45;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+
+		.login-card {
+			left: 50%;
+			right: auto;
+			transform: translateX(-50%);
+			top: 23%;
+			width: calc(100% - 44px);
+			max-width: 370px;
+		}
+	}
+	</style>
+</head>
+<body>
+	<main class="login-page">
+		<div class="city-line"></div>
+		<div class="lens"></div>
+
+		<form class="login-card" id="loginForm">
+		<div class="field">
+			<input id="username" name="username" type="text" value="admin" aria-label="Username" />
+		</div>
+
+		<div class="field">
+			<input id="password" name="password" type="password" value="admin" aria-label="Password" />
+		</div>
+
+		<div id="loginMsg" style="color:red;text-align:center;margin-bottom:10px;font-size:13px;"></div>
+
+		<a href="#" class="forgot">Forgot password?</a>
+		<button class="login-btn" type="submit">Login</button>
+		</form>
+
+		<script>
+			document.getElementById("loginForm").addEventListener("submit", async function(e) {
+			e.preventDefault();
+
+			const username = document.getElementById("username").value;
+			const password = document.getElementById("password").value;
+
+			const res = await fetch("/api/v1/user/login", {
+				method: "POST",
+				headers: {
+				"Content-Type": "application/x-www-form-urlencoded"
+				},
+				body:
+				"username=" + encodeURIComponent(username) +
+				"&password=" + encodeURIComponent(password)
+			});
+
+			const msg = await res.json();
+
+			if (msg.success) {
+				window.location.href = msg.data.redirect;
+			} else {
+				document.getElementById("loginMsg").textContent = msg.message;
+			}
+			});
+		</script>
+	</main>
+</body>
+</html>

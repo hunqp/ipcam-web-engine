@@ -1,0 +1,3 @@
+CXXFLAGS += -Isources/3rd-party/jwt
+
+CXXFLAGS += -DCPP_JWT_USE_VENDORED_NLOHMANN_JSON
