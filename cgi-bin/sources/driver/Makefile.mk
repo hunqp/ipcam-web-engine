@@ -1,0 +1,3 @@
+-include sources/driver/param/Makefile.mk
+-include sources/driver/rk_driver/Makefile.mk
+-include sources/driver/rk_socket/Makefile.mk

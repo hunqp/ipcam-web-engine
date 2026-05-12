@@ -1,12 +1,7 @@
 #include <string.h>
 
 #include "main.h"
-#include "kiwi_log.h"
-
-#define WEB_ROOT        "/home/hunqp/EPCB/WebEngine/envir/www"
-#define AUTH_COOKIE     "camera_auth"
-#define JWT_SECRET      "change-this-camera-jwt-secret"
-#define SESSION_EXPIRED_SECONDS 3600
+#include "cgi_debug.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string stGetEnvirVariables(FCGX_Request& request, const char* name) {
@@ -14,11 +9,21 @@ std::string stGetEnvirVariables(FCGX_Request& request, const char* name) {
     return (v) ? std::string(v) : "" /* Env variables can be empty string, avoid nullptr */;
 }
 
+static inline void prepare() {
+    snprintf(
+        (char*)CGI_FLASH.filename, 
+        sizeof(CGI_FLASH.filename), 
+        "%s/../apis.log", 
+        WWW_ROOT
+    );
+
+    char *RK_PARAM_PATH = (char*)"/userdata/rkipc.ini";
+    rk_param_init(RK_PARAM_PATH);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main() {
     FCGX_Request message;
-    Kiwi_Journal.filename = "/home/hunqp/EPCB/WebEngine/envir/apis.log";
-
     FCGX_Init();
     FCGX_InitRequest(&message, 0, 0);
 
@@ -28,9 +33,9 @@ int main() {
         size_t param = uri.find('?');
         std::string path = uri.substr(0, param);
 
-        VV_SYSD("Method: %s\r\n", method.c_str());
-        VV_SYSD("URI   : %s\r\n", uri.c_str());
-        VV_SYSD("Path  : %s\r\n", path.c_str());
+        CGI_SYSD("Method: %s\r\n", method.c_str());
+        CGI_SYSD("URI   : %s\r\n", uri.c_str());
+        CGI_SYSD("Path  : %s\r\n", path.c_str());
 
         struct RouteMap {
             const char *method;
@@ -71,9 +76,40 @@ int main() {
                         HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
                     }
                 } 
-                VV_SYSD("API: %s\r\n", selected[index].api);
+                CGI_SYSD("API: %s\r\n", selected[index].api);
                 if (boolean) {
-                    selected[index].callback(message);
+                    /*
+                        @JSON Template response
+                        {
+                            "success": true,
+                            "message": "Accepted",
+                            "timestamp": 1577836800,
+                            "data": {}
+                        }
+                    */
+                    nlohmann::json js;
+                    js["success"] = true;
+                    js["message"] = "Accepted";
+                    js["timestamp"] = (uint32_t)time(NULL);
+                    js["data"] = nlohmann::json::object();
+                    try {
+                        selected[index].callback(message, js);
+                    }
+                    catch (const nlohmann::json::parse_error& e) {
+                        js["success"] = false;
+                        js["message"] = "Invalid JSON format: " + std::string(e.what());
+                        HTTP_ResponseDataAsJSON(message, 400, js.dump());
+                    }
+                    catch (const std::exception& e) {
+                        js["success"] = false;
+                        js["message"] = "Server runtime error: " + std::string(e.what());
+                        HTTP_ResponseDataAsJSON(message, 500, js.dump());
+                    }
+                    catch (...) {
+                        js["success"] = false;
+                        js["message"] = "Unknown internal server error.";
+                        HTTP_ResponseDataAsJSON(message, 500, js.dump());
+                    }
                 }
             }
             else {

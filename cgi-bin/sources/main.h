@@ -1,13 +1,22 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "utils.h"
-#include "kiwi_log.h"
-#include "json.hpp"
-#include "fcgiapp.h"
-
 #include <string>
-#include <unordered_map>
+
+#include "utils.h"
+#include "json.hpp"
+#include "network.h"
+#include "fcgiapp.h"
+#include "cgi_debug.h"
+
+/* Include ROCKCHIP SDK */
+#include "rk_param.h"
+#include "rk_client.h"
+
+
+// #ifndef ENVIR_ROOT_DIR
+// #define ENVIR_ROOT_DIR          ""
+// #endif
 
 #define WWW_ROOT                ENVIR_ROOT_DIR "/www"
 #define WWW_LOGIN_REDIRECT      "/login"
@@ -17,7 +26,7 @@
 #define WWW_IMAGE_JPEG          "/image.jpeg"
 #define WWW_VIDEO_MP4           "/livestream.mp4"
 
-typedef void (*CGI_FunCallback)(FCGX_Request& message);
+typedef void (*CGI_FunCallback)(FCGX_Request& message, nlohmann::json& js);
 
 typedef struct {
     char *api;
@@ -42,41 +51,3 @@ extern bool HTTP_IsAuthenticated(FCGX_Request& message);
 extern std::string HTTP_GenerateCookies(const std::string& username);
 
 #endif /* MAIN_H */
-
-// {
-//     "success": true,
-//     "message": "Get audio configuration returns success",
-//     "timestmap": 1778171000,
-//     "data": {
-//     "microphone": {
-//         "volume": 100,
-//         "gain": 20,
-//         "echo_cancellation": false,
-//         "noise_suppression": false
-//     },
-//     "speaker": {
-//         "volume": 100,
-//         "software_amplifier": false,
-//         "software_amplifier_value": 1.5
-//     }
-//     }
-// }
-
-// {
-//     "Success": true,
-//     "Message": "Get audio configuration returns success",
-//     "Timestmap": 1778171000,
-//     "Data": {
-//         "Microphone": {
-//             "Volume": 100,
-//             "Gain": 20,
-//             "EchoCancellation": false,
-//             "NoiseSuppression": false
-//         },
-//         "Speaker": {
-//             "Volume": 100,
-//             "SoftwareAmplifier": false,
-//             "SoftwareAmplifierValue": 1.5
-//         }
-//     }
-// }

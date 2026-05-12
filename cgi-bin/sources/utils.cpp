@@ -13,6 +13,7 @@ std::string stReadFile(const std::string& filename) {
     ss << file.rdbuf();
     return ss.str();
 }
+
 std::string stReadBinaryFile(const std::string& filename) {
     std::ifstream file(filename.c_str(), std::ios::binary);
     if (!file.is_open()) {

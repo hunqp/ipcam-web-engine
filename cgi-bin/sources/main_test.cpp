@@ -10,7 +10,7 @@
 #include "fcgiapp.h"
 #include "json.hpp"
 #include "jwt/jwt.h"
-#include "kiwi_log.h"
+#include "cgi_debug.h"
 #include "http_utils.h"
 
 #define WEB_ROOT "/home/hunqp/EPCB/WebEngine/envir/www"
@@ -193,7 +193,7 @@ static bool validateJwtToken(const std::string& token)
             .verify(decoded);
         return true;
     } catch (const std::exception& e) {
-        VV_SYSD("JWT invalid: %s\r\n", e.what());
+        CGI_SYSD("JWT invalid: %s\r\n", e.what());
         return false;
     }
 }
@@ -337,7 +337,7 @@ static void handleLogin(FCGX_Request& req, const std::string& method)
     }
 
     std::string body = readBody(req);
-    VV_SYSD("Login: %s\r\n", body.c_str());
+    CGI_SYSD("Login: %s\r\n", body.c_str());
     auto form = parseFormData(body);
 
     std::string username = form["username"];
@@ -349,7 +349,7 @@ static void handleLogin(FCGX_Request& req, const std::string& method)
                              jwt +
                              "; Path=/; Max-Age=3600; HttpOnly; SameSite=Strict";
 
-        VV_SYSD("Cookie: %s\r\n", cookie.c_str());                             
+        CGI_SYSD("Cookie: %s\r\n", cookie.c_str());                             
         sendJson(req, 200, "{\"ok\":true,\"redirect\":\"/home.html\",\"token\":\"" + jwt + "\"}", cookie);
     } else {
         sendJson(req, 401, "{\"ok\":false,\"error\":\"Invalid username or password\"}");
@@ -535,7 +535,7 @@ static void handlePortSettings(FCGX_Request& req, const std::string& method)
     }
 
     portSettings = next;
-    VV_SYSD("Port settings saved: http=%d rtsp=%d https=%d server=%d\r\n",
+    CGI_SYSD("Port settings saved: http=%d rtsp=%d https=%d server=%d\r\n",
             portSettings.http,
             portSettings.rtsp,
             portSettings.https,
@@ -551,7 +551,7 @@ static void handlePortSettings(FCGX_Request& req, const std::string& method)
 }
 
 int main() {
-    Kiwi_Journal.filename = "/home/hunqp/EPCB/WebEngine/envir/apis.log";
+    CGI_FLASH.filename = "/home/hunqp/EPCB/WebEngine/envir/apis.log";
 
     FCGX_Init();
 
@@ -565,9 +565,9 @@ int main() {
         size_t q = uri.find('?');
         std::string path = uri.substr(0, q);
 
-        VV_SYSD("Method: %s\r\n", method.c_str());
-        VV_SYSD("URI   : %s\r\n", uri.c_str());
-        VV_SYSD("Path  : %s\r\n", path.c_str());
+        CGI_SYSD("Method: %s\r\n", method.c_str());
+        CGI_SYSD("URI   : %s\r\n", uri.c_str());
+        CGI_SYSD("Path  : %s\r\n", path.c_str());
 
         if (path != "/api/v1/authen/login" &&
             path.compare(0, 8, "/api/v1/") == 0 &&

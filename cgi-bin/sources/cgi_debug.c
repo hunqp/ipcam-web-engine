@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <sys/stat.h>
-#include "kiwi_log.h"
+#include "cgi_debug.h"
 
 #define KNRM (const char*)"\x1B[0m"
 #define KRED (const char*)"\x1B[31m"
@@ -21,24 +21,24 @@ struct t_Decoration {
 };
 
 static const struct t_Decoration decorations[] = {
-    { SYS_LOG_INFO ,  (const char*)"INFO ",  KGRN },
-    { SYS_LOG_WARN ,  (const char*)"WARN ",  KYEL },
-    { SYS_LOG_DEBUG,  (const char*)"DEBUG",  KBLU },
-    { SYS_LOG_ERROR,  (const char*)"ERROR",  KRED }
+    { CGI_LOG_INFO ,  (const char*)"INFO ",  KGRN },
+    { CGI_LOG_WARN ,  (const char*)"WARN ",  KYEL },
+    { CGI_LOG_DEBUG,  (const char*)"DEBUG",  KBLU },
+    { CGI_LOG_ERROR,  (const char*)"ERROR",  KRED }
 };
 
-KIWI_DIARY_T Kiwi_Runtime = {
+CGI_DIARY_T CGI_RAM = {
     .filename = NULL,
     .maxBytesCanBeHold = 50 * 1024,
     .mt = PTHREAD_MUTEX_INITIALIZER
 };
-KIWI_DIARY_T Kiwi_Journal = {
+CGI_DIARY_T CGI_FLASH = {
     .filename = NULL,
     .maxBytesCanBeHold = 10 * 1024,
     .mt = PTHREAD_MUTEX_INITIALIZER
 };
 
-static void rotateHalfContent(KIWI_DIARY_T *me) {
+static void rotateHalfContent(CGI_DIARY_T *me) {
     FILE *fp = fopen(me->filename, "r");
     if (!fp) {
         return;
@@ -73,7 +73,7 @@ static void rotateHalfContent(KIWI_DIARY_T *me) {
     free(content);
 }
 
-void Kiwi_DIARY_WriteLine(KIWI_DIARY_T *me, int level, const char *fmt, ...) {
+void CGI_DIARY_WriteLine(CGI_DIARY_T *me, int level, const char *fmt, ...) {
     pthread_mutex_lock(&me->mt);
 
     const char *tag = decorations[level].tag;
