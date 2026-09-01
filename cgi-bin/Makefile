@@ -1,7 +1,14 @@
-AR      := $(CROSS_COMPILER)ar
-CC      := $(CROSS_COMPILER)gcc
-CXX     := $(CROSS_COMPILER)g++
-STRIP	:= $(CROSS_COMPILER)strip
+ifdef CROSS_COMPILER
+AR      := $(CROSS_COMPILER)-ar
+CC      := $(CROSS_COMPILER)-gcc
+CXX     := $(CROSS_COMPILER)-g++
+STRIP   := $(CROSS_COMPILER)-strip
+else
+AR      := ar
+CC      := gcc
+CXX     := g++
+STRIP   := strip
+endif
 
 OBJ_DIR		:= build
 NAME_MODULE	:= FastCGI
@@ -56,6 +63,9 @@ else
 	@cp --remove-destination $< $(ENVIR_DIR)/bin
 	@echo "Flash completed"
 endif
+
+adb: $(TARGET)
+	@adb push $< /tmp/vendors/envir/bin
 
 clean:
 	@echo rm -rf $(OBJ_DIR)

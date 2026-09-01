@@ -73,7 +73,7 @@ static void rotateHalfContent(CGI_DIARY_T *me) {
     free(content);
 }
 
-void CGI_DIARY_WriteLine(CGI_DIARY_T *me, int level, const char *fmt, ...) {
+void CGI_ConsoleWriteLine(CGI_DIARY_T *me, int level, const char *fmt, ...) {
     pthread_mutex_lock(&me->mt);
 
     const char *tag = decorations[level].tag;

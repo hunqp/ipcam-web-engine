@@ -1,3 +1,6 @@
 -include sources/3rd-party/jwt/Makefile.mk
 -include sources/3rd-party/libfcgi/Makefile.mk
--include sources/3rd-party/libopenssl/Makefile.mk
+-include sources/3rd-party/libopenssl-1.1.1h/Makefile.mk
+-include sources/3rd-party/libself-signed/Makefile.mk
+-include sources/3rd-party/libcurl/Makefile.mk
+-include sources/3rd-party/libkiwi/Makefile.mk

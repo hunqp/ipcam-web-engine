@@ -18,6 +18,7 @@ extern int rk_param_set_int(const char *entry, int val);
 extern int rk_param_get_int(const char *entry, int defaultValue);
 extern int rk_param_set_string(const char *entry, const char *val);
 extern char * rk_param_get_string(const char *entry, const char *defaultValue);
+extern int rk_param_unset(const char *entry);
 
 #ifdef __cplusplus
 }

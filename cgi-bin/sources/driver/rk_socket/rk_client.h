@@ -245,6 +245,7 @@ int rk_roi_get_stream_type(int id, char **value);
 int rk_roi_set_stream_type(int id, const char *value);
 int rk_roi_get_name(int id, char **value);
 int rk_roi_set_name(int id, const char *value);
+int rk_roi_set_points(int id, const char *value);
 int rk_roi_get_id(int id, int *value);
 int rk_roi_set_id(int id, int value);
 int rk_roi_get_enabled(int id, int *value);
@@ -280,6 +281,7 @@ int rk_network_ipv4_set(char *interface, char *method, char *address,
 int rk_network_dns_get(char *ethernet_v4_dns, char *ethernet_v4_dns2);
 int rk_network_dns_set(char *dns1, char *dns2);
 int rk_network_get_mac(const char *ifname, char *mac);
+
 int rk_network_nicspeed_get(const char *ifname, int *speed, int *duplex,
                             int *autoneg);
 int rk_network_nicspeed_set(const char *ifname, int speed, int duplex,
@@ -313,6 +315,17 @@ int rk_event_ri_get_sensitivity_level(int *value);
 int rk_event_ri_set_sensitivity_level(int value);
 int rk_event_ri_get_time_threshold(int *value);
 int rk_event_ri_set_time_threshold(int value);
+// object detection
+int rk_objdet_set_type(int value);
+int rk_objdet_set_enabled(int value);
+int rk_objdet_set_bounding_box(int value);
+int rk_objdet_set_sensitivity_levels(int value);
+
+// watchdog
+int rk_watchdog_ping();
+// gpio
+int rk_gpio_set_spotlight_mode(int mode);
+int rk_gpio_set_spotlight_schedule(char *value);
 
 #ifdef __cplusplus
 }

@@ -145,6 +145,11 @@ void HTTP_ResponseRangeNotSatisfiable(
     FCGX_FPrintF(message.out, "\r\n");
 }
 
+size_t HTTP_ExtractBodyContentLength(FCGX_Request& message) {
+    size_t bodyLength = std::atoi(stGetEnvirVariables(message, "CONTENT_LENGTH").c_str());
+    return bodyLength;
+}
+
 std::string HTTP_ExtractBodyContent(FCGX_Request& message) {
     int len = std::atoi(stGetEnvirVariables(message, "CONTENT_LENGTH").c_str());
     if (len <= 0) {
@@ -211,32 +216,42 @@ static std::string HTTP_GetCookieValue(
     return "";
 }
 
-bool HTTP_IsAuthenticated(FCGX_Request& message) {
+bool HTTP_IsAuthenticated(FCGX_Request& message, int *role) {
+    bool success = false;
     /*  Let check JWT token from:
         Cookie Authorization Header 
     */
     std::string token = HTTP_GetCookieValue(stGetEnvirVariables(message, "HTTP_COOKIE"), JWT_AUTHORISE_SESSION);
     if (!token.empty()) {
-        return AUTHORISE_JWT_ValidateToken(token);
+        bool success = jwt_authorise_validate_token(token);
+        if (success && role) {
+            *role = jwt_authorise_get_role(token);
+        }
+        return success;
     }
-
-    /*  Let check JWT token from:
-        Bearer Authorization Header 
-    */
-    std::string author = stGetEnvirVariables(message, "HTTP_AUTHORIZATION");
+    /* Check JWT from Authorization: Bearer <token> */
     const std::string bearer = "Bearer ";
-    if (author.compare(0, bearer.size(), bearer) == 0) {
-        return AUTHORISE_JWT_ValidateToken(author.substr(bearer.size()));
-    }
+    const std::string authorization = stGetEnvirVariables(message, "HTTP_AUTHORIZATION");
 
-    return false;
+    if (authorization.compare(0, bearer.size(), bearer) != 0) {
+        return false;
+    }
+    token = authorization.substr(bearer.size());
+    if (token.empty()) {
+        return false;
+    }
+    success = jwt_authorise_validate_token(token);
+    if (success && role) {
+        *role = jwt_authorise_get_role(token);
+    }
+    return success;
 }
 
-std::string HTTP_GenerateCookies(const std::string& username) {
-    std::string jwt = AUTHORISE_JWT_GenerateToken(username);
+std::string HTTP_GenerateCookies(const std::string& username, int role) {
+    std::string jwt = jwt_authorise_generate_token(username, role);
     std::string cookie = std::string("Set-Cookie: ") + JWT_AUTHORISE_SESSION + "=" +
                          jwt +
-                         "; Path=/; Max-Age=" + std::to_string(JWT_EXPIRED_SECONDS) + 
+                         "; Path=/; Max-Age=" + std::to_string(JWT_AUTHORISE_EXPIRED_SECONDS) + 
                          "; HttpOnly; SameSite=Strict";
     return cookie;
 }

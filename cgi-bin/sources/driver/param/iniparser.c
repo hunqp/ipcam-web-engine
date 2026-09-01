@@ -593,7 +593,23 @@ int iniparser_find_entry(const dictionary *ini, const char *entry) {
 /*--------------------------------------------------------------------------*/
 int iniparser_set(dictionary *ini, const char *entry, const char *val) {
 	char tmp_str[ASCIILINESZ + 1];
-	return dictionary_set(ini, strlwc(entry, tmp_str, sizeof(tmp_str)), val);
+	char sec_str[ASCIILINESZ + 1];
+	char *colon;
+
+	if (ini == NULL || entry == NULL) return -1;
+	strlwc(entry, tmp_str, sizeof(tmp_str));
+
+	colon = strchr(tmp_str, ':');
+	if (colon != NULL) {
+		size_t seclen = colon - tmp_str;
+		strncpy(sec_str, tmp_str, seclen);
+		sec_str[seclen] = '\0';
+		if (!iniparser_find_entry(ini, sec_str)) {
+			dictionary_set(ini, sec_str, NULL);
+		}
+	}
+
+	return dictionary_set(ini, tmp_str, val);
 }
 
 /*-------------------------------------------------------------------------*/

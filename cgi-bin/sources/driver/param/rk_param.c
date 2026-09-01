@@ -118,3 +118,13 @@ int rk_param_set_string(const char *entry, const char *val) {
 	return 0;
 }
 
+int rk_param_unset(const char *entry) {
+	pthread_mutex_lock(&mt);
+
+	iniparser_unset(ini_d, entry);
+
+	pthread_mutex_unlock(&mt);
+
+	return 0;
+}
+

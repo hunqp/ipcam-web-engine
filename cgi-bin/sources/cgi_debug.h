@@ -35,15 +35,15 @@ enum {
 #define CGI_RAM_SYSD(fmt, ...)
 #define CGI_RAM_SYSE(fmt, ...)
 #else
-#define CGI_SYSI(fmt, ...) CGI_DIARY_WriteLine(&CGI_FLASH, CGI_LOG_INFO , fmt, ##__VA_ARGS__)
-#define CGI_SYSW(fmt, ...) CGI_DIARY_WriteLine(&CGI_FLASH, CGI_LOG_WARN , fmt, ##__VA_ARGS__)
-#define CGI_SYSD(fmt, ...) CGI_DIARY_WriteLine(&CGI_FLASH, CGI_LOG_DEBUG, fmt, ##__VA_ARGS__)
-#define CGI_SYSE(fmt, ...) CGI_DIARY_WriteLine(&CGI_FLASH, CGI_LOG_ERROR, fmt, ##__VA_ARGS__)
+#define CGI_SYSI(fmt, ...)      CGI_ConsoleWriteLine(&CGI_FLASH, CGI_LOG_INFO , fmt, ##__VA_ARGS__)
+#define CGI_SYSW(fmt, ...)      CGI_ConsoleWriteLine(&CGI_FLASH, CGI_LOG_WARN , fmt, ##__VA_ARGS__)
+#define CGI_SYSD(fmt, ...)      CGI_ConsoleWriteLine(&CGI_FLASH, CGI_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define CGI_SYSE(fmt, ...)      CGI_ConsoleWriteLine(&CGI_FLASH, CGI_LOG_ERROR, fmt, ##__VA_ARGS__)
 
-#define CGI_RAM_SYSI(fmt, ...) CGI_DIARY_WriteLine(&CGI_RAM, CGI_LOG_INFO , fmt, ##__VA_ARGS__)
-#define CGI_RAM_SYSW(fmt, ...) CGI_DIARY_WriteLine(&CGI_RAM, CGI_LOG_WARN , fmt, ##__VA_ARGS__)
-#define CGI_RAM_SYSD(fmt, ...) CGI_DIARY_WriteLine(&CGI_RAM, CGI_LOG_DEBUG, fmt, ##__VA_ARGS__)
-#define CGI_RAM_SYSE(fmt, ...) CGI_DIARY_WriteLine(&CGI_RAM, CGI_LOG_ERROR, fmt, ##__VA_ARGS__)
+#define CGI_RAM_SYSI(fmt, ...)  CGI_ConsoleWriteLine(&CGI_RAM, CGI_LOG_INFO , fmt, ##__VA_ARGS__)
+#define CGI_RAM_SYSW(fmt, ...)  CGI_ConsoleWriteLine(&CGI_RAM, CGI_LOG_WARN , fmt, ##__VA_ARGS__)
+#define CGI_RAM_SYSD(fmt, ...)  CGI_ConsoleWriteLine(&CGI_RAM, CGI_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define CGI_RAM_SYSE(fmt, ...)  CGI_ConsoleWriteLine(&CGI_RAM, CGI_LOG_ERROR, fmt, ##__VA_ARGS__)
 #endif
 
 typedef struct {
@@ -55,7 +55,7 @@ typedef struct {
 extern CGI_DIARY_T CGI_RAM;
 extern CGI_DIARY_T CGI_FLASH;
 
-extern void CGI_DIARY_WriteLine(CGI_DIARY_T *me, int level, const char *fmt, ...);
+extern void CGI_ConsoleWriteLine(CGI_DIARY_T *me, int level, const char *fmt, ...);
 
 #ifdef __cplusplus
 }

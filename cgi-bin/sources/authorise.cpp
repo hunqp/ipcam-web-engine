@@ -1,7 +1,7 @@
 #include "jwt.h"
 #include "authorise.h"
 
-bool AUTHORISE_JWT_ValidateToken(const std::string& token) {
+bool jwt_authorise_validate_token(const std::string& token) {
     try {
         auto decoded = jwt::decode(token);
         jwt::verify()
@@ -15,12 +15,26 @@ bool AUTHORISE_JWT_ValidateToken(const std::string& token) {
     return false;
 }
 
-std::string AUTHORISE_JWT_GenerateToken(const std::string& username) {
+std::string jwt_authorise_generate_token(const std::string& username, int role) {
     auto now = std::chrono::system_clock::now();
     return jwt::create()
         .set_type("JWT")
         .set_subject(username)
+        .set_payload_claim("role", jwt::claim(std::to_string(role)))
         .set_issued_at(now)
-        .set_expires_at(now + std::chrono::seconds(JWT_EXPIRED_SECONDS))
+        .set_expires_at(now + std::chrono::seconds(JWT_AUTHORISE_EXPIRED_SECONDS))
         .sign(jwt::algorithm::hs256(JWT_AUTHORISE_SECRET));
+}
+
+int jwt_authorise_get_role(const std::string& token) {
+    try {
+        auto decoded = jwt::decode(token);
+        if (decoded.has_payload_claim("role")) {
+            std::string role_str = decoded.get_payload_claim("role").as_string();
+            return std::stoi(role_str);
+        }
+    } catch (...) {
+        /**/
+    }
+    return 0xff;
 }

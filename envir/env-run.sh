@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ -z "$ENVIR_DIR" ]; then
-    echo "You MUST define ENVIR_DIR"
-    exit 1
+    export ENVIR_DIR=$PWD
 fi
 
-"$ENVIR_DIR/bin/lighttpd" -f "$ENVIR_DIR/etc/lighttpd.conf" -D
+killall -9 FastCGI
+"$ENVIR_DIR/bin/lighttpd" -f "$ENVIR_DIR/etc/lighttpd.conf" -m "$ENVIR_DIR/lib"  -D

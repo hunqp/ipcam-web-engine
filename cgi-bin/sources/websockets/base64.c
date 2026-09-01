@@ -1,0 +1,127 @@
+/*
+ * Base64 encoding/decoding (RFC1341)
+ * Copyright (c) 2005-2011, Jouni Malinen <j@w1.fi>
+ *
+ * This software may be distributed under the terms of the BSD license.
+ * See README for more details.
+ */
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include "base64.h"
+
+static const unsigned char Base64Table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+unsigned char * Base64Encode(const unsigned char *src, size_t srcLen, size_t *dstLen) {
+	unsigned char *out, *pos;
+	const unsigned char *end, *in;
+	size_t olen;
+	int line_len;
+
+	olen = srcLen * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
+	olen += olen / 72; /* line feeds */
+	olen++; /* nul termination */
+	if (olen < srcLen)
+		return NULL; /* integer overflow */
+	out = malloc(olen);
+	if (out == NULL)
+		return NULL;
+
+	end = src + srcLen;
+	in = src;
+	pos = out;
+	line_len = 0;
+	while (end - in >= 3) {
+		*pos++ = Base64Table[in[0] >> 2];
+		*pos++ = Base64Table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+		*pos++ = Base64Table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+		*pos++ = Base64Table[in[2] & 0x3f];
+		in += 3;
+		line_len += 4;
+		if (line_len >= 72) {
+			*pos++ = '\n';
+			line_len = 0;
+		}
+	}
+
+	if (end - in) {
+		*pos++ = Base64Table[in[0] >> 2];
+		if (end - in == 1) {
+			*pos++ = Base64Table[(in[0] & 0x03) << 4];
+			*pos++ = '=';
+		} else {
+			*pos++ = Base64Table[((in[0] & 0x03) << 4) |
+					      (in[1] >> 4)];
+			*pos++ = Base64Table[(in[1] & 0x0f) << 2];
+		}
+		*pos++ = '=';
+		line_len += 4;
+	}
+
+	if (line_len)
+		*pos++ = '\n';
+
+	*pos = '\0';
+	if (dstLen)
+		*dstLen = pos - out;
+	return out;
+}
+
+unsigned char * Base64Decode(const unsigned char *src, size_t srcLen, size_t *dstLen) {
+	unsigned char dtable[256], *out, *pos, block[4], tmp;
+	size_t i, Count, olen;
+	int pad = 0;
+
+	memset(dtable, 0x80, 256);
+	for (i = 0; i < sizeof(Base64Table) - 1; i++)
+		dtable[Base64Table[i]] = (unsigned char) i;
+	dtable['='] = 0;
+
+	Count = 0;
+	for (i = 0; i < srcLen; i++) {
+		if (dtable[src[i]] != 0x80)
+			Count++;
+	}
+
+	if (Count == 0 || Count % 4)
+		return NULL;
+
+	olen = Count / 4 * 3;
+	pos = out = malloc(olen);
+	if (out == NULL)
+		return NULL;
+
+	Count = 0;
+	for (i = 0; i < srcLen; i++) {
+		tmp = dtable[src[i]];
+		if (tmp == 0x80)
+			continue;
+
+		if (src[i] == '=')
+			pad++;
+		block[Count] = tmp;
+		Count++;
+		if (Count == 4) {
+			*pos++ = (block[0] << 2) | (block[1] >> 4);
+			*pos++ = (block[1] << 4) | (block[2] >> 2);
+			*pos++ = (block[2] << 6) | block[3];
+			Count = 0;
+			if (pad) {
+				if (pad == 1)
+					pos--;
+				else if (pad == 2)
+					pos -= 2;
+				else {
+					/* Invalid padding */
+					free(out);
+					return NULL;
+				}
+				break;
+			}
+		}
+	}
+
+	*dstLen = pos - out;
+	return out;
+}

@@ -1254,6 +1254,10 @@ int rk_roi_set_name(int id, const char *value) {
   return rk_client_set_string_by_id((char *)__func__, id, value);
 }
 
+int rk_roi_set_points(int id, const char *value) {
+  return rk_client_set_string_by_id((char *)__func__, id, value);
+}
+
 int rk_roi_get_id(int id, int *value) {
   return rk_client_get_int_by_id((char *)__func__, id, value);
 }
@@ -1809,5 +1813,47 @@ int rk_event_ri_get_time_threshold(int *value) {
 }
 
 int rk_event_ri_set_time_threshold(int value) {
+  return rk_client_set_int((char *)__func__, value);
+}
+
+// watchdog
+int rk_watchdog_ping() {
+  int fd;
+  int ret = 0;
+  int val = 1;
+
+  fd = cli_begin((char *)__func__);
+  /* Transmission parameters */
+  sock_write(fd, &val, sizeof(int));
+  sock_read(fd, &ret, sizeof(int));
+  /* End transmission parameters */
+  ret = cli_end(fd);
+
+  return ret;
+}
+
+// gpio
+int rk_gpio_set_spotlight_mode(int mode) {
+  return rk_client_set_int((char *)__func__, mode);
+}
+
+int rk_gpio_set_spotlight_schedule(char *value) {
+  return rk_client_set_string((char *)__func__, value);
+}
+
+// object detection
+int rk_objdet_set_type(int value) {
+  return rk_client_set_int((char *)__func__, value);
+}
+
+int rk_objdet_set_enabled(int value) {
+  return rk_client_set_int((char *)__func__, value);
+}
+
+int rk_objdet_set_bounding_box(int value) {
+  return rk_client_set_int((char *)__func__, value);
+}
+
+int rk_objdet_set_sensitivity_levels(int value) {
   return rk_client_set_int((char *)__func__, value);
 }
