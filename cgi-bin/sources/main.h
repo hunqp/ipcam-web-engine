@@ -43,6 +43,8 @@
 /*
     @User customize configurations for intergration
 */
+#define APP_NTPD_CONFIGURE_FILE         APP_INTEGRATION_DIR "/ntp.json"
+#define APP_PROTOCOLS_CONFIGURE_FILE    APP_INTEGRATION_DIR "/protocols.json"
 #define APP_RTMP_CONFIGURE_FILE         APP_INTEGRATION_DIR "/rtmp-stream.json"
 #define APP_STORAGE_CONFIGURE_FILE      APP_INTEGRATION_DIR "/storage.json"
 #define APP_EVENT_DISPATCHER_FILE       APP_INTEGRATION_DIR "/event-dispatcher.json"

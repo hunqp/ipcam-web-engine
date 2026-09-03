@@ -23,7 +23,7 @@ static struct {
     uint16_t u16FailedAttempts = 0;
     uint16_t u16GeometricSequence = 0;
     /* Default constant values */
-    const uint16_t U16_MAX_LOGIN_ATTEMPTS  = 10U;
+    const uint16_t U16_MAX_LOGIN_ATTEMPTS  = 15U;
     const uint32_t U32_MAX_LOCKOUT_SECONDS = 300U; /* 5 minutes */
 
     void reset(bool bResetByTimeout) {
@@ -487,24 +487,19 @@ static void APIV1_CGI_NetworkStream(FCGX_Request &message, nlohmann::json &js) {
 }
 
 static void APIV1_CGI_NetworkProtocols(FCGX_Request &message, nlohmann::json &js) {
-    int rc = -1;
-    int status = 200;
     std::string body = HTTP_ExtractBodyContent(message);
     nlohmann::json _js = nlohmann::json::parse(body);
     {
-        int rtspPort = _js["rtsp_port"].get<int>();
-        if (rtspPort > 0 && rtspPort < 65535) {
-            rk_param_set_int("network.rtsp:port", rtspPort);
-            rk_param_savein();
-            rc = 0;
-        }
+        wrteFile(APP_PROTOCOLS_CONFIGURE_FILE, _js.dump());
+        sMainTimer.dispatch("protocols", 1000, []() {
+            /* Restart RTSP server */
+            runCommands("/oem/usr/etc/init.d/S51rtspd restart > /dev/null 2>&1");
+            sleep(1);
+            /* Restart ONVIF server */
+            runCommands("/oem/usr/etc/init.d/S52wsdd restart > /dev/null 2>&1");
+        });
     }
-    if (rc != 0) {
-        status = 400;
-        js["success"] = false;
-        js["message"] = "Operation failure";
-    }
-    HTTP_ResponseDataAsJSON(message, status, js.dump());
+    HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 
 static void APIV1_CGI_NetworkWiFiConnect(FCGX_Request &message, nlohmann::json &js) {
@@ -772,15 +767,11 @@ static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
     std::string body = HTTP_ExtractBodyContent(message);
     nlohmann::json _js = nlohmann::json::parse(body);
     {
-        std::string date = _js["date"].get<std::string>();
-        std::string time = _js["time"].get<std::string>();
         std::string timezone = _js["timezone"].get<std::string>();
         wrteFile("/userdata/TZ", timezone);
         runCommands("ln -sf /oem/usr/share/zoneinfo/%s /etc/localtime", timezone.c_str());
         tzset();
-        std::string datetime = date + " " + time;
-        runCommands("date -s \"%s\"", datetime.c_str());
-        system("sync");
+        wrteFile(APP_NTPD_CONFIGURE_FILE, _js.dump());
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -924,7 +915,7 @@ static void APIV1_CGI_StorageFormat(FCGX_Request &message, nlohmann::json &js) {
             while (fscanf(fp, "%31s %31s %*s %*s %*d %*d", hdd, mountpoint) == 2) {
                 if (strcmp(mountpoint, (const char*)"/mnt/sdcard") == 0) {
                     CGI_SYSD("Unmounting and formatting storage: %s -> %s\r\n", hdd, mountpoint);
-                    rc = runCommands("umount -l %s && mkfs.vfat %s > /dev/null 2>&1", mountpoint, hdd);
+                    rc = runCommands("killall -9 p2p_client && umount -l %s && mkfs.vfat %s > /dev/null 2>&1", mountpoint, hdd);
                     break;
                 }
             }
@@ -1236,5 +1227,5 @@ HashTableEntrance POST_HashMap[] = {
     /*
         @End of function
     */
-    {(char *)NULL                                , false ,  Customer      , (CGI_FunCallback)NULL         },
+    {(char *)NULL                                , false ,  Customer      , (CGI_FunCallback)NULL          },
 };

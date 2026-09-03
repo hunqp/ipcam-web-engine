@@ -291,8 +291,18 @@ static void APIV1_CGI_NetworkStatus(FCGX_Request &message, nlohmann::json &js) {
 static void APIV1_CGI_NetworkProtocols(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json &data = js["data"];
     {
-        data["http_port"] = 443;
-        data["rtsp_port"] = rk_param_get_int("network.rtsp:port", 554);
+        if (access(APP_PROTOCOLS_CONFIGURE_FILE, F_OK) == 0) {
+            std::string content = readFile(APP_PROTOCOLS_CONFIGURE_FILE);
+            data = nlohmann::json::parse(content);
+        }
+        else {
+            /* Assign pseudo values */
+            data["http"]["port"] = 443;
+            data["rtsp"]["port"] = 554;
+            data["rtsp"]["tls"] = false;
+            data["rtsp"]["enabled"] = true;
+            data["onvif"]["enabled"] = true;
+        }
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -321,27 +331,32 @@ static void APIV1_CGI_NetworkWiFiScan(FCGX_Request &message, nlohmann::json &js)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
-    time_t now = time(NULL);
-    struct tm *local = localtime(&now);
-    char date_buf[32] = {0};
-    char time_buf[32] = {0};
-    strftime(date_buf, sizeof(date_buf), "%Y-%m-%d", local);
-    strftime(time_buf, sizeof(time_buf), "%H:%M:%S", local);
-
-    int offset_seconds = local->tm_gmtoff;
-    int abs_offset = offset_seconds < 0 ? -offset_seconds : offset_seconds;
-    int offset_hours = offset_seconds / 3600;
-    int offset_minutes = (abs_offset % 3600) / 60;
-    char offset_buf[32];
-    snprintf(offset_buf, sizeof(offset_buf), "UTC%+03d:%02d", offset_hours, offset_minutes);
-
     nlohmann::json &data = js["data"];
-    data["date"] = std::string(date_buf);
-    data["time"] = std::string(time_buf);
-    data["utc_offset"] = std::string(offset_buf);
-    data["timezone"] = readFile("/userdata/TZ");
-    data["ntp"]["enabled"] = rk_param_get_int("network.ntp:enable", 0);
-    data["ntp"]["enabled"] = rk_param_get_string("network.ntp:ntp_server", "pool.ntp.org");
+    {
+        if (access(APP_NTPD_CONFIGURE_FILE, F_OK) == 0) {
+            std::string content = readFile(APP_NTPD_CONFIGURE_FILE);
+            data = nlohmann::json::parse(content);
+        }
+        else {
+            /* Assign peasudo values */
+            data["utc_offset"] = std::string("UTC-07:00");
+            data["timezone"] = std::string("Asia/Ho_Chi_Minh");
+            data["ntp"]["enabled"] = false;
+            data["ntp"]["servers"].push_back(std::string("0.pool.ntp.org"));
+            data["ntp"]["servers"].push_back(std::string("1.pool.ntp.org"));
+            data["ntp"]["servers"].push_back(std::string("2.pool.ntp.org"));
+            data["ntp"]["servers"].push_back(std::string("3.pool.ntp.org"));
+            data["ntp"]["servers"].push_back(std::string("time.google.com"));
+        }
+        char dateStr[32] = {0};
+        char timeStr[32] = {0};
+        time_t ts = time(NULL);
+        struct tm *local = localtime(&ts);
+        strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", local);
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", local);
+        data["date"] = std::string(dateStr);
+        data["time"] = std::string(timeStr);
+    }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 
