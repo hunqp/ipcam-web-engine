@@ -3,8 +3,12 @@
 #include <cctype>
 #include <dirent.h>
 #include <sys/stat.h>
+/* Network libraries */
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
-/* User inlcude */
+/* User include */
 #include "main.h"
 #include "utils.h"
 #include "network.h"
@@ -12,31 +16,6 @@
 #include "self-signed.h"
 #include "attemps_login.h"
 #include "dispatchtimer.h"
-
-/**
- * This variable used for limiting user login attempts
- * Preventing BRUT FORCE attacks
- */
-static struct {
-    bool isLocked = false;
-    uint32_t u32LockedTime = 0;
-    uint32_t u32LastAccess = 0;
-    uint16_t u16FailedAttempts = 0;
-    uint16_t u16GeometricSequence = 0;
-    /* Default constant values */
-    const uint16_t U16_MAX_LOGIN_ATTEMPTS  = 15U;
-    const uint32_t U32_MAX_LOCKOUT_SECONDS = 300U; /* 5 minutes */
-
-    void reset(bool bResetByTimeout) {
-        isLocked = false;
-        u32LockedTime = 0;
-        u32LastAccess = 0;
-        u16FailedAttempts = 0;
-        if (!bResetByTimeout) {
-            u16GeometricSequence = 0;
-        }
-    }
-} sAttemptUserLogin;
 
 static DispatchTimer sMainTimer;
 static std::string sUpgradeSecret;
@@ -92,34 +71,65 @@ static bool validateCredentials(const std::string &username, const std::string &
     return false;
 }
 
+static inline bool getAttemptsLoginAddr(FCGX_Request& request, sockaddr_storage& clientAddr) {
+    std::string remoteAddr = stGetEnvirVariables(request, "REMOTE_ADDR");
+
+    if (!remoteAddr.length()) {
+        return false;
+    }
+
+    /* Extract IPv4 address as sockaddr_storage */
+    sockaddr_in* sa4 = reinterpret_cast<sockaddr_in*>(&clientAddr);
+    if (inet_pton(AF_INET, remoteAddr.c_str(), &sa4->sin_addr) == 1) {
+        sa4->sin_family = AF_INET;
+        return true;
+    }
+
+    /* Extract IPv6 address as sockaddr_storage */
+    sockaddr_in6* sa6 = reinterpret_cast<sockaddr_in6*>(&clientAddr);
+    if (inet_pton(AF_INET6, remoteAddr.c_str(), &sa6->sin6_addr) == 1) {
+        sa6->sin6_family = AF_INET6;
+        return true;
+    }
+
+    return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
     int status = 401;
     char username[32] = {0};
     char password[32] = {0};
-    std::string extraHeader;
+    std::string extraHeader{};
     eUserLevels role = Administrator;
     std::string body = HTTP_ExtractBodyContent(message);
 
-    /* LOCKED ! Break at this segment code */
+    /**
+     * We try to get the client IP address from the request to 
+     * storage it in the attempts login state.
+     * Purpose to prevent brute force attacks and DoS.
+     */
+    sockaddr_storage clientAddr = {0};
+    if (!getAttemptsLoginAddr(message, clientAddr)) {
+        js["success"] = false;
+        js["message"] = "Unable to determine remote address";
+        HTTP_ResponseDataAsJSON(message, 400, js.dump());
+        return;
+    }
     uint32_t u32Ts = (uint32_t)time(NULL);
-    if (sAttemptUserLogin.isLocked) {
-        if (u32Ts > sAttemptUserLogin.u32LockedTime) {
-            /* Expired and UNLOCK */
-            sAttemptUserLogin.reset(true);
-        } else {
-            sAttemptUserLogin.u32LastAccess = u32Ts;
-            js["success"] = false;
-            js["message"] = "Too many failed login attempts! Please try again later " 
-                            + std::to_string(sAttemptUserLogin.u32LockedTime - sAttemptUserLogin.u32LastAccess) 
-                            + " seconds.";
-            HTTP_ResponseDataAsJSON(message, 401, js.dump());
-            return;
-        }
+    AttemptsLoginState *attempts = findOrCreateAttemptState(clientAddr, u32Ts);
+    if (attempts->isBlocked(u32Ts)) {
+        js["success"] = false;
+        js["message"] = "Too many failed login attempts! Please try again later " 
+                        + std::to_string(attempts->u32LockedTime - attempts->u32LastAccess) 
+                        + " seconds.";
+        HTTP_ResponseDataAsJSON(message, 401, js.dump());
+        return;
     }
 
     /* %127[^&] means read up to 127 characters */
-    if (sscanf(body.c_str(), "username=%127[^&]&password=%127s", username, password) == 2) {
+    if (sscanf(body.c_str(), "username=%127[^&]&password=%127s", username, password) == 2 &&
+        strlen(username) > 0 && strlen(password) > 0) {
         HTTP_DecodeSubmitForm(username, username);
         HTTP_DecodeSubmitForm(password, password);
         if (validateCredentials(username, password, (int*)&role)) {
@@ -127,22 +137,17 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
             extraHeader = HTTP_GenerateCookies(username, (int)role);
         }
     }
-
+    
     if (status == 200) {
         js["data"]["role"] = role;
         js["data"]["redirect"] = WWW_REDIRECT_PREVIEW;
         js["data"]["username"] = std::string(username);
-        sAttemptUserLogin.reset(false);
+        attempts->reset(false);
     } else {
-        if ((++sAttemptUserLogin.u16FailedAttempts) >= sAttemptUserLogin.U16_MAX_LOGIN_ATTEMPTS) {
-            sAttemptUserLogin.isLocked = true;
-            sAttemptUserLogin.u16GeometricSequence++;
-            uint32_t u32Timeout = sAttemptUserLogin.u16GeometricSequence * sAttemptUserLogin.U32_MAX_LOCKOUT_SECONDS;
-            sAttemptUserLogin.u32LockedTime = (uint32_t)time(NULL) + u32Timeout;
-        }
+        attempts->onFailedAttempts(u32Ts);
         js["success"] = false;
         js["message"] = "Invalid username or password! You still have " 
-            + std::to_string(sAttemptUserLogin.U16_MAX_LOGIN_ATTEMPTS - sAttemptUserLogin.u16FailedAttempts) 
+            + std::to_string(attempts->U16_MAX_LOGIN_ATTEMPTS - attempts->u16FailedAttempts) 
             + " attempt(s).";
     }
     HTTP_ResponseDataAsJSON(message, status, js.dump(), extraHeader);

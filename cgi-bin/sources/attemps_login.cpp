@@ -59,7 +59,7 @@ static bool sameClientAddress(struct sockaddr_storage const& a, struct sockaddr_
 }
 
 AttemptsLoginState* findOrCreateAttemptState(struct sockaddr_storage const& clientAddr, uint32_t u32Ts) {
-    AttemptsLoginState* pLruSlot = NULL;
+    AttemptsLoginState* pBusySlot = NULL;
     AttemptsLoginState* pFreeSlot = NULL;
     
     for (unsigned id = 0; id < MAX_TRACKED_CLIENT_IPS; ++id) {
@@ -70,15 +70,15 @@ AttemptsLoginState* findOrCreateAttemptState(struct sockaddr_storage const& clie
         if (!pSlot->inUse && pFreeSlot == NULL) {
             pFreeSlot = pSlot;
         }
-        if (pLruSlot == NULL || pSlot->u32LastAccess < pLruSlot->u32LastAccess) {
-            pLruSlot = pSlot;
+        if (pBusySlot == NULL || pSlot->u32LastAccess < pBusySlot->u32LastAccess) {
+            pBusySlot = pSlot;
         }
     }
 
-    AttemptsLoginState* pNewSlot = (pFreeSlot != NULL) ? pFreeSlot : pLruSlot;
-    *pNewSlot = AttemptsLoginState();
-    pNewSlot->inUse = true;
-    pNewSlot->clientAddr = clientAddr;
-    pNewSlot->u32LastAccess = u32Ts;
-    return pNewSlot;
+    AttemptsLoginState* selected = (pFreeSlot != NULL) ? pFreeSlot : pBusySlot;
+    *selected = AttemptsLoginState();
+    selected->inUse = true;
+    selected->clientAddr = clientAddr;
+    selected->u32LastAccess = u32Ts;
+    return selected;
 }
