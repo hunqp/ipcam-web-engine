@@ -10,11 +10,12 @@
 #include "network.h"
 #include "http_utils.h"
 #include "self-signed.h"
+#include "attemps_login.h"
 #include "dispatchtimer.h"
 
 /**
  * This variable used for limiting user login attempts
- * Preventing brute force attacks
+ * Preventing BRUT FORCE attacks
  */
 static struct {
     bool isLocked = false;
@@ -96,8 +97,8 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
     int status = 401;
     char username[32] = {0};
     char password[32] = {0};
-    eUserLevels role = Administrator;
     std::string extraHeader;
+    eUserLevels role = Administrator;
     std::string body = HTTP_ExtractBodyContent(message);
 
     /* LOCKED ! Break at this segment code */

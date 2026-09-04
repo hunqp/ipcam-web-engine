@@ -63,8 +63,9 @@ int main() {
         std::string method = stGetEnvirVariables(message, (const char*)"REQUEST_METHOD");
         size_t param = uri.find('?');
         std::string path = uri.substr(0, param);
+        std::string query = (param != std::string::npos) ? uri.substr(param + 1) : "";
         
-        CGI_SYSD("CGI -> Method: \'%s\', URI: \'%s\', Path: \'%s\'\r\n", method.c_str(), uri.c_str(), path.c_str());
+        CGI_SYSD("CGI -> Method: \'%s\', URI: \'%s\', Path: \'%s\', Query: \'%s\'\r\n", method.c_str(), uri.c_str(), path.c_str(), query.c_str());
 
         struct RouteMap {
             const char *method;
@@ -78,7 +79,7 @@ int main() {
             { "DELETE"  , DELETE_HashMap    }
         };
         HashTableEntrance *selected = NULL;
-        /* Find all method that supports*/
+        /* Find all method that supports */
         for (auto &p : maps) {
             if (p.method == method) {
                 selected = p.routes;
@@ -101,8 +102,40 @@ int main() {
                 eUserLevels role;
                 bool boolean = true;
                 if (selected[index].needToAuthenticate) {
-                    boolean = HTTP_IsAuthenticated(message, (int*)&role);
-                    /* Authorise verification */
+                    /* Initialise to false */
+                    boolean = false;
+                    /**
+                     * Get credentials from query string, e.g. ?username=admin&password=123456
+                     */
+                    if (query.length() > 0) {
+                        char username[32] = {0};
+                        char password[32] = {0};
+                        int n = sscanf(query.c_str(), "username=%31[^&]&password=%31s", username, password);
+                        if (n != 2) {
+                            HTTP_ResponseDataAsJSON(message, 400, "{\"success\": false, \"message\": \"Invalid query parameters\"}");
+                        } else {
+                            /* Authorise verification */
+                            KIWI_CREDENTIALS_T credentials[32] = {0};
+                            int counts = Kiwi_Credentials_Get(credentials, 32);
+                            for (int id = 0; id < counts; ++id) {
+                                if (strcmp(credentials[id].username, username) == 0 &&
+                                    strcmp(credentials[id].password, password) == 0) {
+                                    role = (eUserLevels)credentials[id].role;
+                                    boolean = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    /**
+                     * Get credentials from HTTP Authorization header
+                     * This method is used JWT Token, e.g. Authorization: Bearer <token>
+                     */
+                    else {
+                        /* Authorise verification */
+                        boolean = HTTP_IsAuthenticated(message, (int*)&role);
+                    }
+
                     if (!boolean) {
                         HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
                     } else {
