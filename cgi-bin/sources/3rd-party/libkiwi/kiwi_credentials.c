@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L /* strdup() is POSIX, not C11; needed under -std=c11 */
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -10,6 +12,9 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/crypto.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+#include <openssl/x509.h>
 
 #include "kiwi_credentials.h"
 
@@ -37,8 +42,8 @@ typedef struct {
  */
 static struct {
     char *filename;
-    uint8_t key[PR_CRED_KEYLEN];
     bool configured;
+    uint8_t key[PR_CRED_KEYLEN];
 } sDefaultGlobalCredentials = {0};
 
 /**
@@ -46,11 +51,11 @@ static struct {
  * HKDF-SHA256(salt, secret) -> PRK, then HKDF-Expand(PRK, info) -> 32-byte key. One expand
  * round is enough since SHA-256 already outputs 32 bytes.
  */
-static void PR_AES_KEY_Derive(const char *secret, uint8_t key[PR_CRED_KEYLEN]) {
+static void PR_AES_KEY_Derive(const uint8_t *secret, int secretLen, uint8_t key[PR_CRED_KEYLEN]) {
     unsigned int prkLen = 0;
     uint8_t prk[EVP_MAX_MD_SIZE] = {0};
-    static const uint8_t SALT[] = "KIWI_CREDENTIALS_V1_SALT";    
-    HMAC(EVP_sha256(), SALT, sizeof(SALT) - 1, (const uint8_t *)secret, strlen(secret), prk, &prkLen);
+    static const uint8_t SALT[] = "KIWI_CREDENTIALS_V1_SALT";
+    HMAC(EVP_sha256(), SALT, sizeof(SALT) - 1, secret, secretLen, prk, &prkLen);
 
     static const uint8_t AES256GCM[] = "KIWI_CREDENTIALS_V1_AES256GCM_KEY";
     uint8_t arr[sizeof(AES256GCM)];
@@ -64,6 +69,41 @@ static void PR_AES_KEY_Derive(const char *secret, uint8_t key[PR_CRED_KEYLEN]) {
 
     OPENSSL_cleanse(prk, sizeof(prk));
     OPENSSL_cleanse(okm, sizeof(okm));
+}
+
+/**
+ * Load a PEM-encoded private key file and extract its raw (DER) key material.
+ * Parsing the key (instead of just slurping the file's bytes) validates that the
+ * path actually points at a private key and normalizes away formatting differences
+ * (line endings, whitespace) so the derived storage key stays stable across re-saves
+ * of the same key. The caller owns *outBuf and must OPENSSL_cleanse()+OPENSSL_free() it.
+ */
+static int PR_ExtractPrivateKeyContent(const char *storageKeyFilename, uint8_t **pp, int *size) {
+    *size = 0;
+    *pp = NULL;
+
+    BIO *bio = BIO_new_file(storageKeyFilename, "r");
+    if (!bio) {
+        return -1;
+    }
+
+    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    if (!pkey) {
+        return -1;
+    }
+
+    uint8_t *der = NULL;
+    int len = i2d_PrivateKey(pkey, &der);
+    EVP_PKEY_free(pkey);
+    if (len <= 0 || !der) {
+        return -1;
+    }
+
+    *pp = der;
+    *size = len;
+
+    return 0;
 }
 
 /* ---- AES-256-GCM record encryption -------------------------------------------------------- */
@@ -187,8 +227,8 @@ static bool reloadDatabase(KIWI_CREDENTIALS_T **ppList, uint32_t *pSize) {
         if (!list) {
             break;
         }
-        int valid = 0;
-        for (int id = 0; id < hdr.count; ++id) {
+        uint32_t valid = 0;
+        for (uint32_t id = 0; id < hdr.count; ++id) {
             FILE_DB_ITEM_T item = {0};
             if (fread(&item, sizeof(item), 1, fp) != 1) {
                 break; /* Truncated file: keep whatever validated so far. */
@@ -265,16 +305,24 @@ static inline bool sameUsername(const KIWI_CREDENTIALS_T *a, const KIWI_CREDENTI
 
 /**
  * @brief Bind Add/Mod/Del/Get to one credentials file and derive its AES-256-GCM
- *        storage key from a caller-supplied secret. Must be called before any other
- *        Kiwi_Credentials_*() call; calling it again rebinds to a new file/secret.
+ *        storage key from a device private key. Must be called before any other
+ *        Kiwi_Credentials_*() call; calling it again rebinds to a new file/key.
  * @param[in] filename The path to the encrypted credentials file.
- * @param[in] secret A NUL-terminated secret used to derive the storage key (e.g. a
- *            hardware-bound identifier the caller retrieves itself). Only its
- *            HKDF-derived key is kept in memory; the secret itself is never stored.
- * @return 0 on success, or -1 if filename or secret is NULL/empty.
+ * @param[in] storageKeyFilename Path to a PEM-encoded private key file (e.g. the device's
+ *            TLS server key). The key material is extracted from this file and fed
+ *            into HKDF to derive the storage key; only the derived key is kept in
+ *            memory, the key material itself is never stored.
+ * @return 0 on success, or -1 if filename/storageKeyFilename is NULL, or the private key
+ *         file could not be read or parsed.
  */
-int Kiwi_Credentials_Setup(const char *filename, const char *secret) {
-    if (!filename || !secret) {
+int Kiwi_Credentials_Setup(const char *filename, const char *storageKeyFilename) {
+    if (!filename || !storageKeyFilename) {
+        return -1;
+    }
+
+    uint8_t *keyContent = NULL;
+    int keyContentLen = 0;
+    if (PR_ExtractPrivateKeyContent(storageKeyFilename, &keyContent, &keyContentLen) != 0) {
         return -1;
     }
 
@@ -285,8 +333,11 @@ int Kiwi_Credentials_Setup(const char *filename, const char *secret) {
     sDefaultGlobalCredentials.filename = strdup(filename);
 
     OPENSSL_cleanse(sDefaultGlobalCredentials.key, sizeof(sDefaultGlobalCredentials.key));
-    PR_AES_KEY_Derive(secret, sDefaultGlobalCredentials.key);
+    PR_AES_KEY_Derive(keyContent, keyContentLen, sDefaultGlobalCredentials.key);
     sDefaultGlobalCredentials.configured = true;
+
+    OPENSSL_cleanse(keyContent, keyContentLen);
+    OPENSSL_free(keyContent);
     return 0;
 }
 
@@ -412,9 +463,9 @@ int Kiwi_Credentials_Get(KIWI_CREDENTIALS_T *list, int size) {
         return 0;
     }
 
-    int count = 0;
+    uint32_t count = 0;
     KIWI_CREDENTIALS_T *arr = NULL;
-    
+
     if (!reloadDatabase(&arr, &count)) {
         return 0;
     }

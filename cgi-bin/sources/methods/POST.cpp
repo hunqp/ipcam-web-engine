@@ -788,19 +788,11 @@ static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &j
     {
         std::string sn = _js["serial_number"].get<std::string>();
         wrteFile(APP_UNIQUE_SERIAL_FILE, sn);
-        int rc = runCommands("sh generate-self-signed.sh %s && sync > /dev/null 2>&1", sn.c_str());
-        if (rc != 0) {
-            js["success"] = false;
-            js["message"] = "Failed to register device serial number";
-            HTTP_ResponseDataAsJSON(message, 422, js.dump());
-            return;
-        } else {
-            js["success"] = true;
-            js["message"] = "Completed. Device will be rebooted after one second.";
-            sMainTimer.dispatch("reboot-machine", 1500, []() {
-                system("reboot");
-            });
-        }
+        js["success"] = true;
+        js["message"] = "Completed. Device will be rebooted after one second.";
+        sMainTimer.dispatch("reboot-machine", 1500, []() {
+            system("reboot");
+        });
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }

@@ -14,8 +14,8 @@
 #include "kiwi_credentials.h"
 
 /* Include ROCKCHIP SDK */
-#include "rk_param.h"
 #include "rk_gpio.h"
+#include "rk_param.h"
 #include "rk_client.h"
 
 #define RAM_ROOT                        "/tmp"
@@ -39,7 +39,7 @@
 #define APP_REGISTERED_STATUS_FILE		APP_USERDATA_DIR "/registered"
 #define APP_UNIQUE_SERIAL_FILE		    APP_USERDATA_DIR "/serial-number"
 #define APP_ACCOUNTS_DB_FILE            APP_USERDATA_DIR "/accounts.db"
-#define APP_SECRET_UNIQUE_FILE          APP_USERDATA_DIR "/secret-unique"
+#define APP_SECRET_UNIQUE_FILE          "/oem/usr/etc/lighttpd/server.key"
 /*
     @User customize configurations for intergration
 */

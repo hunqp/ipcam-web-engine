@@ -22,8 +22,7 @@ static inline void prepare() {
     rk_param_init((char*)APP_IPC_CONFIGURE_FILE);
 
     /* Initialise secret by serial number of device */
-    std::string secret = readFile(APP_SECRET_UNIQUE_FILE);
-    Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, secret.c_str());
+    Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, APP_SECRET_UNIQUE_FILE);
 
     /* Auto generate password default for the first time */
     if (access(APP_ACCOUNTS_DB_FILE, F_OK) != 0) {
