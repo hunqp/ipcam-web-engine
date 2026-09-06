@@ -220,7 +220,7 @@ static bool reloadDatabase(KIWI_CREDENTIALS_T **ppList, uint32_t *pSize) {
 
 static void saveinDatabase(const KIWI_CREDENTIALS_T *list, uint32_t count) {
     FILE *fp = fopen(sDefaultGlobalCredentials.filename, "wb");
-    if (fp < 0) {
+    if (!fp) {
         return;
     }
     /* Write header informations */
