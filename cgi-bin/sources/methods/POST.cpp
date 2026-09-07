@@ -18,13 +18,13 @@
 #include "dispatchtimer.h"
 
 static DispatchTimer sMainTimer;
-static std::string sUpgradeSecret;
 static std::string sUpgradeMD5Sum;
 static size_t sUpgradeTotalSize;
 static size_t sUpgradeBytesReceived;
 static const char *FW_UPGRADE_DIR = RAM_ROOT "/ipc_firmware";
-static const char *FW_UPGRADE_PACKAGED = RAM_ROOT "/ipc_firmware/fw_package.bin";
-static const char *FW_UPGRADE_FILENAME = RAM_ROOT "/ipc_firmware/p2p_client.tar.gz";
+static const char *FW_UPGRADE_PACKAGED = RAM_ROOT "/ipc_firmware/upgrade.bin";
+static const char *FW_UPGRADE_MANIFEST = RAM_ROOT "/ipc_firmware/manifest.json";
+static const char *FW_UPGRADE_FILENAME = RAM_ROOT "/ipc_firmware/p2p_client.tar";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -599,20 +599,18 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     if (contentType.compare(0, 16, "application/json") == 0) {
         std::string body = HTTP_ExtractBodyContent(message);
         nlohmann::json _js = nlohmann::json::parse(body);
-        std::string secret = _js["secret"].get<std::string>();
         std::string md5sum = _js["md5sum"].get<std::string>();
         bool validMd5 = (md5sum.length() == 32) ? true : false;
         for (char &let : md5sum) {
             validMd5 = validMd5 && std::isxdigit(static_cast<unsigned char>(let));
             let = static_cast<char>(std::tolower(static_cast<unsigned char>(let)));
         }
-        if (secret.empty() || secret.length() > 256 || !validMd5) {
+        if (!validMd5) {
             js["success"] = false;
-            js["message"] = "Invalid secret or md5sum";
+            js["message"] = "Invalid md5sum";
             HTTP_ResponseDataAsJSON(message, 400, js.dump());
             return;
         }
-        sUpgradeSecret = secret;
         sUpgradeMD5Sum = md5sum;
         sUpgradeBytesReceived = 0;
         sUpgradeTotalSize = 0;
@@ -633,7 +631,7 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     for (char &let : md5sum) {
         let = static_cast<char>(std::tolower(static_cast<unsigned char>(let)));
     }
-    if (sUpgradeSecret.empty() || (secret != sUpgradeSecret) || (md5sum != sUpgradeMD5Sum)) {
+    if (md5sum != sUpgradeMD5Sum) {
         js["success"] = false;
         js["message"] = "Firmware metadata does not match";
         HTTP_ResponseDataAsJSON(message, 409, js.dump());
@@ -687,7 +685,6 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     }
     if (!success) {
         unlink(FW_UPGRADE_PACKAGED);
-        sUpgradeSecret.clear();
         sUpgradeMD5Sum.clear();
         sUpgradeBytesReceived = 0;
         sUpgradeTotalSize = 0;
@@ -711,62 +708,88 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
         js["success"] = false;
         js["message"] = "Firmware checksum mismatch";
         unlink(FW_UPGRADE_PACKAGED);
-        sUpgradeSecret.clear();
         sUpgradeMD5Sum.clear();
         sUpgradeBytesReceived = 0;
         sUpgradeTotalSize = 0;
         HTTP_ResponseDataAsJSON(message, 422, js.dump());
         return;
     }
+
+    CGI_SYSD("Package downloads complete with %s, expected %s\r\n", md5.c_str(), md5sum.c_str());
 
     /**
-     * Validate SECRET and MD5SUM after download complete
+     * Validate ENCRYPTION and SIGNATURE after download complete
      */
-    char *stSigns = NULL;
-    char *stError = strdup("UNKNOWN");
-    if (validateSecret(sUpgradeSecret.c_str(), (char*)md5.c_str(), &stSigns, &stError)) {
-        setenv("FW_DECRYPT_PASS", stSigns, 1);
-        CGI_SYSD("%s\r\n", stSigns);
-        int rc = runCommands("openssl enc -d -aes-256-cbc -pbkdf2 -iter 10000 -pass env:FW_DECRYPT_PASS  -in '%s' -out '%s'", FW_UPGRADE_PACKAGED, FW_UPGRADE_FILENAME);
-        if (rc == 0) {
-            unlink(FW_UPGRADE_PACKAGED);
-            sMainTimer.dispatch("upgrade-machine", 1500, []() {
-                runCommands(
-                "cd %s && tar -xf %s && chmod +x install.sh && sh install.sh > /dev/null", 
-                FW_UPGRADE_DIR,
-                FW_UPGRADE_FILENAME);
-            });
-        } else {
+    int iUpgradeStatus = 200;
+    std::string stUpgradeError = "Unknown error";
+    do {
+        int rc = runCommands("cd %s && unpackage-upgrade.sh %s", FW_UPGRADE_DIR, FW_UPGRADE_PACKAGED);
+        CGI_SYSD("Unpackage upgrade status return %d\r\n", rc);
+        if (rc != 0) {
+            if (rc == 10) {
+                stUpgradeError = "Package decryption failed / Invalid package key / Corrupted package";
+            } else if (rc == 11) {
+                stUpgradeError = "Package extraction failed";
+            } else if (rc == 12) {
+                stUpgradeError = "Failed to load signing certificate";
+            } else if (rc == 13 || rc == 14) {
+                stUpgradeError = "Firmware package is not integrity";
+            } else if (rc == 20) {
+                stUpgradeError = "Invalid firmware signature";
+            }
+            iUpgradeStatus = 422;
             js["success"] = false;
-            js["message"] = "Invalid package firmware";
-            unlink(FW_UPGRADE_PACKAGED);
-            sUpgradeSecret.clear();
-            sUpgradeMD5Sum.clear();
-            sUpgradeBytesReceived = 0;
-            sUpgradeTotalSize = 0;
-            free(stError);
-            HTTP_ResponseDataAsJSON(message, 422, js.dump());
-            return;
+            js["message"] = stUpgradeError;
+            break;
         }
-    } else {
-        js["success"] = false;
-        js["message"] = std::string(stError);
-        unlink(FW_UPGRADE_PACKAGED);
-        sUpgradeSecret.clear();
-        sUpgradeMD5Sum.clear();
-        sUpgradeBytesReceived = 0;
-        sUpgradeTotalSize = 0;
-        free(stError);
-        HTTP_ResponseDataAsJSON(message, 422, js.dump());
-        return;
-    }
 
-    sUpgradeSecret.clear();
+        /**
+         * Extract firmware archive
+         */
+        rc = runCommands("cd %s && tar -xf %s", FW_UPGRADE_DIR, FW_UPGRADE_FILENAME);
+        if (rc != 0) {
+            iUpgradeStatus = 422;
+            js["success"] = false;
+            js["message"] = "Failed to extract firmware package. Firmware upgrade may be corrupted";
+            break;
+        }
+
+        /**
+         * Validate firmware manifest
+         */
+        std::string manifest = readFile(FW_UPGRADE_MANIFEST);
+        nlohmann::json sjs = nlohmann::json::parse(manifest);
+        std::string model = sjs["Model"].get<std::string>();
+        std::string stExpiresAt = sjs["ExpiresAt"].get<std::string>();
+        uint32_t u32ExpiresEpoch = sjs["ExpiresEpoch"].get<uint32_t>();
+
+        const char *stDefaultModel = rk_param_get_string("system.device_info:model", "UNKNOWN");
+        if (strcmp(stDefaultModel, model.c_str()) != 0) {
+            iUpgradeStatus = 422;
+            js["success"] = false;
+            js["message"] = "Invalid firmware package for " + std::string(stDefaultModel);
+            break;
+        }
+        uint32_t u32Ts = time(NULL);
+        if (u32Ts > u32ExpiresEpoch) {
+            iUpgradeStatus = 422;
+            js["success"] = false;
+            js["message"] = "Firmware package has expired at " + stExpiresAt;
+            break;
+        }
+
+        js["success"] = false;
+        js["message"] = "Download complete. Firmware upgrade has started, wait a few minutes";
+        
+        // TODO
+    }
+    while (0);
+    
+    // unlink(FW_UPGRADE_PACKAGED);
     sUpgradeMD5Sum.clear();
-    sUpgradeBytesReceived = 0;
     sUpgradeTotalSize = 0;
-    free(stError);
-    HTTP_ResponseDataAsJSON(message, 200, js.dump());
+    sUpgradeBytesReceived = 0;
+    HTTP_ResponseDataAsJSON(message, iUpgradeStatus, js.dump());
 }
 
 static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
