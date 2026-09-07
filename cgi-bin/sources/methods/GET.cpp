@@ -370,6 +370,7 @@ static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &j
         data["serial_number"] = readFile(APP_UNIQUE_SERIAL_FILE);
         data["release_date"] = _js["SoftwareBuildTime"].get<std::string>();
         data["firmware_version"] = _js["Version"].get<std::string>();
+        data["release_datetime"] = _js["SoftwareBuildTime"].get<std::string>();
         data["hardware_version"] = rk_param_get_string("system.device_info:hardware_version", "UNKOWN");
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());

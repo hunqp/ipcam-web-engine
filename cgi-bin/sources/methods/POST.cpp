@@ -778,14 +778,17 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
             break;
         }
 
-        js["success"] = false;
+        js["success"] = true;
         js["message"] = "Download complete. Firmware upgrade has started, wait a few minutes";
-        
-        // TODO
+        sMainTimer.dispatch("upgrade", 1500, []() {
+            extern bool IS_MACHINE_UPGRADING;
+            IS_MACHINE_UPGRADING = true;
+            runCommands("cd %s && chmod +x install.sh && sh install.sh > /dev/null &", FW_UPGRADE_DIR);
+        });
     }
     while (0);
     
-    // unlink(FW_UPGRADE_PACKAGED);
+    unlink(FW_UPGRADE_PACKAGED);
     sUpgradeMD5Sum.clear();
     sUpgradeTotalSize = 0;
     sUpgradeBytesReceived = 0;

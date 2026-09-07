@@ -6,8 +6,8 @@
 #include "cgi_debug.h"
 #include "http_utils.h"
 
-
 std::string WWW_ROOT;
+bool IS_MACHINE_UPGRADING = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string stGetEnvirVariables(FCGX_Request& request, const char* name) {
@@ -58,6 +58,15 @@ int main() {
     WWW_ROOT = std::string(getenv("ENVIR_DIR")) + "/www";
 
     while (FCGX_Accept_r(&message) >= 0) {
+        /**
+         * IGNORE all request if the machine is UPGRADING
+         */
+        if (IS_MACHINE_UPGRADING) {
+            HTTP_ResponseDataAsJSON(message, 403, "{\"success\": false, \"message\": \"MACHINE IS UPGRADING\"}");
+            FCGX_Finish_r(&message);
+            continue;
+        }
+
         std::string uri = stGetEnvirVariables(message, (const char*)"REQUEST_URI");
         std::string method = stGetEnvirVariables(message, (const char*)"REQUEST_METHOD");
         size_t param = uri.find('?');
