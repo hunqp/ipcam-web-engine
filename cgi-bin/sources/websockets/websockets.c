@@ -445,6 +445,10 @@ static int Handshake(FrameData_t *frame) {
     if ((n = PR_RECV(frame->Client, frame->Frame, sizeof(frame->Frame) - 1)) < 0)
         return (-1);
 
+    /* NUL-terminate so the string scans below (and the auth hook) stay in bounds
+     * even when this Client slot is being reused from a previous connection. */
+    frame->Frame[n] = '\0';
+
     p = strstr((const char *)frame->Frame, "\r\n\r\n");
     if (p == NULL) {
 
@@ -453,6 +457,20 @@ static int Handshake(FrameData_t *frame) {
     frame->BytesRead = n;
     frame->CurrentPosition = (size_t)((ptrdiff_t)(p - (char *)frame->Frame)) + 4;
     SaveRequestPath(frame->Client, (const char *)frame->Frame);
+
+    /* Authorise the upgrade before we commit to it. Must run before
+     * GetHandshakeResponse(), which tokenises frame->Frame in place. */
+    if (frame->Client->ServerRef->Events.OnAuthorise &&
+        frame->Client->ServerRef->Events.OnAuthorise(
+            frame->Client->ClientId, (const char *)frame->Frame) != 0) {
+        static const char deny[] =
+            "HTTP/1.1 401 Unauthorized\r\n"
+            "Connection: close\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n";
+        PR_SEND(frame->Client, deny, sizeof(deny) - 1);
+        return (-1);
+    }
 
     if (GetHandshakeResponse((char *)frame->Frame, &response) < 0) {
         return (-1);

@@ -24,6 +24,10 @@ static inline void prepare() {
     /* Initialise secret by serial number of device */
     Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, APP_SECRET_UNIQUE_FILE);
 
+    /* Derive this process' JWT signing secret (see authorise.cpp). Must run
+     * before InitStreamer(), whose WebSocket auth hook validates tokens too. */
+    jwt_authorise_setup();
+
     /* Auto generate password default for the first time */
     if (access(APP_ACCOUNTS_DB_FILE, F_OK) != 0) {
         KIWI_CREDENTIALS_T defaultCredentials = {0};
@@ -73,7 +77,7 @@ int main() {
         std::string path = uri.substr(0, param);
         std::string query = (param != std::string::npos) ? uri.substr(param + 1) : "";
         
-        CGI_SYSD("CGI -> Method: \'%s\', URI: \'%s\', Path: \'%s\', Query: \'%s\'\r\n", method.c_str(), uri.c_str(), path.c_str(), query.c_str());
+        CGI_SYSD("CGI -> Method: \'%s\', Path: \'%s\'\r\n", method.c_str(), path.c_str());
 
         struct RouteMap {
             const char *method;
@@ -107,51 +111,27 @@ int main() {
                 }
             }
             if (hasFound) {
-                eUserLevels role;
                 bool boolean = true;
+                eUserLevels role = Customer; /* Least privilege until authenticated */
                 if (selected[index].needToAuthenticate) {
-                    /* Initialise to false */
-                    boolean = false;
                     /**
-                     * Get credentials from query string, e.g. ?username=admin&password=123456
+                     * Authentication is accepted ONLY via the session cookie
+                     * (vivoo_session) or an "Authorization: Bearer <jwt>" header,
+                     * both handled by HTTP_IsAuthenticated().
+                     *
+                     * Credentials in the query string are intentionally NOT
+                     * accepted anymore: they leaked into the process log, the
+                     * web-server access log, proxies and browser history, and
+                     * that path also bypassed the per-IP brute-force lockout
+                     * that guards POST /api/v1/user/login.
                      */
-                    if (query.length() > 0) {
-                        char username[32] = {0};
-                        char password[32] = {0};
-                        int n = sscanf(query.c_str(), "username=%31[^&]&password=%31s", username, password);
-                        if (n != 2) {
-                            HTTP_ResponseDataAsJSON(message, 400, "{\"success\": false, \"message\": \"Invalid query parameters\"}");
-                        } else {
-                            /* Authorise verification */
-                            KIWI_CREDENTIALS_T credentials[32] = {0};
-                            int counts = Kiwi_Credentials_Get(credentials, 32);
-                            for (int id = 0; id < counts; ++id) {
-                                if (strcmp(credentials[id].username, username) == 0 &&
-                                    strcmp(credentials[id].password, password) == 0) {
-                                    role = (eUserLevels)credentials[id].role;
-                                    boolean = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    /**
-                     * Get credentials from HTTP Authorization header
-                     * This method is used JWT Token, e.g. Authorization: Bearer <token>
-                     */
-                    else {
-                        /* Authorise verification */
-                        boolean = HTTP_IsAuthenticated(message, (int*)&role);
-                    }
-
+                    boolean = HTTP_IsAuthenticated(message, (int*)&role);
                     if (!boolean) {
                         HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
-                    } else {
-                        /* Permissions verification */
-                        if (role > selected[index].role) {
-                            HTTP_ResponseDataAsJSON(message, 403, "{\"success\": false, \"message\": \"Forbidden: Permissions denied\"}");
-                            boolean = false;
-                        }
+                    } else if (role > selected[index].role) {
+                        /* Permissions verification (smaller enum value == more privilege) */
+                        HTTP_ResponseDataAsJSON(message, 403, "{\"success\": false, \"message\": \"Forbidden: Permissions denied\"}");
+                        boolean = false;
                     }
                 }
                 if (boolean) {
@@ -192,6 +172,23 @@ int main() {
                         js["message"] = "Unknown internal server error";
                         HTTP_ResponseDataAsJSON(message, 500, js.dump());
                     }
+                }
+            }
+            else if (method == "GET" && path.compare(0, 9, "/records/") == 0) {
+                /**
+                 * Recorded clips on the SD card. These used to be served with
+                 * NO authentication at all through a lighttpd
+                 * 'alias.url = ( "/records/" => "/mnt/sdcard/" )' mapping.
+                 * They are now routed through FastCGI so a valid session is
+                 * required before any file is returned.
+                 */
+                eUserLevels role = Customer;
+                if (!HTTP_IsAuthenticated(message, (int*)&role)) {
+                    CGI_SYSW("Record download unauthorized: %s\r\n", path.c_str());
+                    HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
+                } else {
+                    extern void HTTP_ServeRecordFile(FCGX_Request& message, const std::string& urlPath);
+                    HTTP_ServeRecordFile(message, path);
                 }
             }
             else {

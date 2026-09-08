@@ -1,5 +1,21 @@
+#include <random>
 #include "jwt.h"
 #include "authorise.h"
+
+static std::string JWT_AUTHORISE_SECRET;
+
+void jwt_authorise_setup(void) {
+    static const size_t length = 32;
+    static const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    static std::random_device rd;
+    static std::mt19937 generator(rd());
+    std::uniform_int_distribution<size_t> distribution(0, chars.size() - 1);
+
+    JWT_AUTHORISE_SECRET.reserve(32);
+    for (size_t i = 0; i < length; ++i) {
+        JWT_AUTHORISE_SECRET += chars[distribution(generator)];
+    }
+}
 
 bool jwt_authorise_validate_token(const std::string& token) {
     try {

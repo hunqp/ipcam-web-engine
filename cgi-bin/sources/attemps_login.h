@@ -19,7 +19,7 @@
  * crash the process.
  */
 struct AttemptsLoginState {
-    static const uint16_t U16_MAX_LOGIN_ATTEMPTS  = 15U;
+    static const uint16_t U16_MAX_LOGIN_ATTEMPTS  = 5U;
     static const uint32_t U32_MAX_LOCKOUT_SECONDS = 300U; /* 5 minutes */
     /* Cap on the backoff exponent so the shift in onFailedAttempts() never
      * overflows and the lockout duration saturates at U32_MAX_LOCKOUT_SECONDS

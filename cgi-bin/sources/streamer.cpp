@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <strings.h>
 
 #include "cgi_debug.h"
 #include "basethread.h"
@@ -11,6 +12,7 @@
 #include "flv_live.h"
 #include "websockets.h"
 #include "flv_stream.h"
+#include "authorise.h"
 #include "kiwi_ringbuffer.h"
 
 #define FLV_LIVE0_NAME (const char*)"live0.flv"
@@ -66,6 +68,91 @@ void vPortFlvClosure(FlvClient *me) {
 }
 bool xPortFlvSendBin(FlvClient *me, void *data, size_t size) {
     return (WebSocketsSendBinary(me->getId(), (const char*)data, (uint64_t)size) >= 0);
+}
+
+/**
+ * Minimum privilege level allowed to watch the live stream. Mirrors eUserLevels
+ * in main.h (Administrator = 0, Operator = 1, Customer = 2); a LARGER number
+ * means a LOWER privilege, so "role <= WS_STREAM_MIN_ROLE" == "allowed".
+ */
+#define WS_STREAM_MIN_ROLE (2 /* Customer */)
+
+/**
+ * Pull the session JWT out of a raw WebSocket handshake. Browsers attach the
+ * HttpOnly "vivoo_session" cookie automatically on a same-origin ws/wss
+ * upgrade, so no front-end change is needed. Native clients that cannot set a
+ * Cookie header may instead pass "?access_token=<jwt>" in the request URL.
+ */
+static std::string wsExtractToken(const char *raw) {
+    if (!raw) {
+        return std::string();
+    }
+
+    /* 1) Cookie: ... vivoo_session=<jwt> ... */
+    for (const char *line = raw; line && *line; ) {
+        const char *eol = strstr(line, "\r\n");
+        size_t len = eol ? (size_t)(eol - line) : strlen(line);
+        if (len == 0) {
+            break; /* reached the blank line that ends the headers */
+        }
+        if (len > 7 && strncasecmp(line, "Cookie:", 7) == 0) {
+            std::string hdr(line + 7, len - 7);
+            const std::string key = std::string(JWT_AUTHORISE_SESSION) + "=";
+            size_t pos = hdr.find(key);
+            if (pos != std::string::npos) {
+                pos += key.size();
+                size_t end = hdr.find(';', pos);
+                std::string v = hdr.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+                while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) {
+                    v.erase(v.begin());
+                }
+                while (!v.empty() && (v.back() == ' ' || v.back() == '\t' || v.back() == '\r')) {
+                    v.pop_back();
+                }
+                if (!v.empty()) {
+                    return v;
+                }
+            }
+        }
+        if (!eol) {
+            break;
+        }
+        line = eol + 2;
+    }
+
+    /* 2) Fallback: access_token=<jwt> in the request-line query string */
+    const char *lineEnd = strstr(raw, "\r\n");
+    const char *q = (const char *)memchr(raw, '?', lineEnd ? (size_t)(lineEnd - raw) : strlen(raw));
+    if (q && lineEnd) {
+        const char *needle = "access_token=";
+        for (const char *s = q; s && s + 13 <= lineEnd; ++s) {
+            if (strncmp(s, needle, 13) == 0) {
+                const char *b = s + 13;
+                const char *e = b;
+                while (e < lineEnd && *e != '&' && *e != ' ' && *e != '\r') {
+                    ++e;
+                }
+                return std::string(b, (size_t)(e - b));
+            }
+        }
+    }
+
+    return std::string();
+}
+
+static int onWsAuthorise(int cId, const char *raw) {
+    (void)cId;
+
+    std::string token = wsExtractToken(raw);
+    if (token.empty() || !jwt_authorise_validate_token(token)) {
+        CGI_SYSW("WS upgrade rejected: missing or invalid session token\r\n");
+        return -1;
+    }
+    if (jwt_authorise_get_role(token) > WS_STREAM_MIN_ROLE) {
+        CGI_SYSW("WS upgrade rejected: insufficient privilege\r\n");
+        return -1;
+    }
+    return 0;
 }
 
 static void onWsOpened(int cId) {
@@ -124,6 +211,7 @@ void InitStreamer(void) {
         events.OnOpened = onWsOpened;
         events.OnClosed = onWsClosed;
         events.OnHandle = onWsHandle;
+        events.OnAuthorise = onWsAuthorise;
         WebSocketsHandle_t ws = WebSocketsCreate("127.0.0.1", PORT, WS_TIMEOUT_MS, WS_MAX_CLIENTS);
         assert(ws);
         WebSocketsSetEvents(ws, &events);

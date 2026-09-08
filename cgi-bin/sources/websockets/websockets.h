@@ -54,6 +54,16 @@ typedef struct {
     void (*OnOpened)(int SocketFileDescriptor);
     void (*OnClosed)(int SocketFileDescriptor);
     void (*OnHandle)(int SocketFileDescriptor, const unsigned char *Message, uint64_t msgSize, int type);
+    /**
+     * Called during the HTTP upgrade, AFTER the request line/headers have been
+     * received but BEFORE the "101 Switching Protocols" reply is sent. It is
+     * handed the raw, NUL-terminated handshake buffer so the host can inspect
+     * the Cookie header / query string and decide whether the peer is allowed.
+     * Return 0 to accept the connection, non-zero to reject it (the server then
+     * answers "401 Unauthorized" and drops the socket without firing OnOpened).
+     * When NULL, every well-formed handshake is accepted (legacy behaviour).
+     */
+    int (*OnAuthorise)(int SocketFileDescriptor, const char *RawHandshake);
 } WebSocketEvents_t;
 
 typedef struct WebSocketsContext_t *WebSocketsHandle_t;
