@@ -44,30 +44,30 @@
 #include "websockets.h"
 
 #define PR_SEND(Client, buf, len)  SendAll((Client), (buf), (len), MSG_NOSIGNAL)
-#define PR_RECV(SocketFileDescriptor, buf, len)  recv((SocketFileDescriptor)->ClientSock, (buf), (len), 0)
+#define PR_RECV(sfd, buf, len)  recv((sfd)->ClientSock, (buf), (len), 0)
 
 extern int GetHandshakeResponse(char *hsrequest, char **hsresponse);
 
 typedef struct PeerConnection_t PeerConnection_t;
 
-struct WebSocketsContext_t {
+struct lw_wss_t {
     const char *Host;
     uint16_t Port;
     uint32_t TimeoutMs;
     uint8_t Total;
-    WebSocketEvents_t Events;
+    lw_wss_events_t Events;
     bool RunningFlag;
     pthread_t Thread;
     int Sock;
     pthread_mutex_t ClientsMutex;
     PeerConnection_t *Clients;
-    struct WebSocketsContext_t *Next;
+    struct lw_wss_t *Next;
 };
 
 struct PeerConnection_t {
     int ClientSock;
     int State;
-    struct WebSocketsContext_t *ServerRef;
+    struct lw_wss_t *ServerRef;
     pthread_mutex_t StateMutex;
     pthread_cond_t CloseCond;
     pthread_t TimeoutThread;
@@ -99,17 +99,17 @@ typedef struct {
     (cli)->ClientSock > -1)
 
 static uint32_t GenerateId = 1;
-static WebSocketsHandle_t ServerList = NULL; 
+static lw_wss_handle_t ServerList = NULL; 
 static pthread_mutex_t DefaultGeneralMutex = PTHREAD_MUTEX_INITIALIZER;
 
-static PeerConnection_t *FindClientById(int SocketFileDescriptor) {
+static PeerConnection_t *FindClientById(int sfd) {
     PeerConnection_t *Client = NULL;
 
     pthread_mutex_lock(&DefaultGeneralMutex);
-    for (WebSocketsHandle_t ServerRef = ServerList; ServerRef; ServerRef = ServerRef->Next) {
+    for (lw_wss_handle_t ServerRef = ServerList; ServerRef; ServerRef = ServerRef->Next) {
         pthread_mutex_lock(&ServerRef->ClientsMutex);
         for (uint8_t id = 0; id < ServerRef->Total; ++id) {
-            if (ServerRef->Clients[id].ClientId == SocketFileDescriptor) {
+            if (ServerRef->Clients[id].ClientId == sfd) {
                 Client = &ServerRef->Clients[id];
                 break;
             }
@@ -393,15 +393,15 @@ static int SendFrame(PeerConnection_t *Client, const char *Message, uint64_t siz
     return (int)SendAllIov(Client, iov, 2, MSG_NOSIGNAL);
 }
 
-int WebSocketsSendText(int Client, const char *Message, uint64_t size) {
+int lw_wss_send_str(int Client, const char *Message, uint64_t size) {
     return SendFrame(FindClientById(Client), Message, size, configFR_OP_TXT);
 }
 
-int WebSocketsSendBinary(int Client, const char *Message, uint64_t size) {
+int lw_wss_send_bin(int Client, const char *Message, uint64_t size) {
     return SendFrame(FindClientById(Client), Message, size, configFR_OP_BIN);
 }
 
-int WebSocketsCloseClient(int Client) {
+int lw_wss_close_peer(int Client) {
     PeerConnection_t *cli = FindClientById(Client);
 
     unsigned char closeCode[2];
@@ -425,8 +425,8 @@ int WebSocketsCloseClient(int Client) {
     return (0);
 }
 
-const char *WebSocketsGetPath(int SocketFileDescriptor) {
-    PeerConnection_t *Client = FindClientById(SocketFileDescriptor);
+const char *lw_wss_get_path(int sfd) {
+    PeerConnection_t *Client = FindClientById(sfd);
     if (!CLIENT_VALID(Client)) {
         return NULL;
     }
@@ -911,7 +911,7 @@ FORCE_CLOSE:
 static void *AcceptPeerConnection(void *args) {
     struct sockaddr_storage sa;
     socklen_t salen = sizeof(sa);
-    WebSocketsHandle_t ServerRef = (WebSocketsHandle_t)args;
+    lw_wss_handle_t ServerRef = (lw_wss_handle_t)args;
 
     while (ServerRef->RunningFlag) {
         int newSocket = accept(ServerRef->Sock, (struct sockaddr*)&sa, &salen);
@@ -976,7 +976,7 @@ static void *AcceptPeerConnection(void *args) {
     return NULL;
 }
 
-static int BindSocket(WebSocketsHandle_t ServerRef) {
+static int BindSocket(lw_wss_handle_t ServerRef) {
     struct addrinfo hints = {
         .ai_flags    = AI_PASSIVE,
         .ai_family   = AF_UNSPEC,
@@ -1011,17 +1011,17 @@ static int BindSocket(WebSocketsHandle_t ServerRef) {
     return fd;
 }
 
-static WebSocketsHandle_t CreateServer(
+static lw_wss_handle_t CreateServer(
     const char *Host,
     uint16_t Port,
     uint32_t TimeoutMs,
     uint8_t Total,
-    const WebSocketEvents_t *events) {
+    const lw_wss_events_t *events) {
     if (Total == 0) {
         return NULL;
     }
 
-    WebSocketsHandle_t ServerRef = (WebSocketsHandle_t)calloc(1, sizeof(*ServerRef));
+    lw_wss_handle_t ServerRef = (lw_wss_handle_t)calloc(1, sizeof(*ServerRef));
     if (!ServerRef) {
         return NULL;
     }
@@ -1076,7 +1076,7 @@ static WebSocketsHandle_t CreateServer(
         if (ServerList == ServerRef) {
             ServerList = ServerRef->Next;
         } else {
-            for (WebSocketsHandle_t it = ServerList; it; it = it->Next) {
+            for (lw_wss_handle_t it = ServerList; it; it = it->Next) {
                 if (it->Next == ServerRef) {
                     it->Next = ServerRef->Next;
                     break;
@@ -1095,17 +1095,17 @@ static WebSocketsHandle_t CreateServer(
     return ServerRef;
 }
 
-WebSocketsHandle_t WebSocketsCreate(const char *Host, uint16_t Port, uint32_t TimeoutMs, uint8_t Total) {
+lw_wss_handle_t lw_wss_create(const char *Host, uint16_t Port, uint32_t TimeoutMs, uint8_t Total) {
     return CreateServer(Host, Port, TimeoutMs, Total, NULL);
 }
 
-void WebSocketsSetEvents(WebSocketsHandle_t handle, const WebSocketEvents_t *events) {
+void lw_wss_set_events(lw_wss_handle_t handle, const lw_wss_events_t *events) {
     if (handle && events) {
         handle->Events = *events;
     }
 }
 
-void WebSocketsDelete(WebSocketsHandle_t handle) {
+void lw_wss_delete(lw_wss_handle_t handle) {
     if (!handle) {
         return;
     }
@@ -1119,7 +1119,7 @@ void WebSocketsDelete(WebSocketsHandle_t handle) {
     if (ServerList == handle) {
         ServerList = handle->Next;
     } else {
-        for (WebSocketsHandle_t it = ServerList; it; it = it->Next) {
+        for (lw_wss_handle_t it = ServerList; it; it = it->Next) {
             if (it->Next == handle) {
                 it->Next = handle->Next;
                 break;

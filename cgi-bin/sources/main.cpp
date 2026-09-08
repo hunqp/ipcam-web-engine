@@ -4,7 +4,7 @@
 #include "base64.h"
 #include "streamer.h"
 #include "cgi_debug.h"
-#include "http_utils.h"
+#include "helpers.h"
 
 std::string WWW_ROOT;
 bool IS_MACHINE_UPGRADING = false;

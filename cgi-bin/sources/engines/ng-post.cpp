@@ -12,8 +12,7 @@
 #include "main.h"
 #include "utils.h"
 #include "network.h"
-#include "http_utils.h"
-#include "self-signed.h"
+#include "helpers.h"
 #include "attemps_login.h"
 #include "dispatchtimer.h"
 

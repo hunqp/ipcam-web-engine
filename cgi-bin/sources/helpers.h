@@ -1,5 +1,5 @@
-#ifndef HTTP_UTILS_H
-#define HTTP_UTILS_H
+#ifndef HELPERS_H
+#define HELPERS_H
 
 #include <string>
 #include "fcgiapp.h"
@@ -25,4 +25,4 @@ extern std::string HTTP_ExtractBodyContent(FCGX_Request& message);
 extern std::string HTTP_GenerateCookies(const std::string& username, int role);
 extern bool HTTP_IsAuthenticated(FCGX_Request& message, int *role = NULL);
 
-#endif /* HTTP_UTILS_H */
+#endif /* HELPERS_H */

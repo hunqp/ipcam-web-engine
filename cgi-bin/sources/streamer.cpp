@@ -64,10 +64,10 @@ static inline void closedStream() {
 
 
 void vPortFlvClosure(FlvClient *me) {
-    WebSocketsCloseClient(me->getId());
+    lw_wss_close_peer(me->getId());
 }
 bool xPortFlvSendBin(FlvClient *me, void *data, size_t size) {
-    return (WebSocketsSendBinary(me->getId(), (const char*)data, (uint64_t)size) >= 0);
+    return (lw_wss_send_bin(me->getId(), (const char*)data, (uint64_t)size) >= 0);
 }
 
 /**
@@ -156,7 +156,7 @@ static int onWsAuthorise(int cId, const char *raw) {
 }
 
 static void onWsOpened(int cId) {
-    const char *select = WebSocketsGetPath(cId);
+    const char *select = lw_wss_get_path(cId);
     CGI_SYSD("Selected stream: %s\r\n", select ? select : "NULL");
     if (!select) {
         return;
@@ -207,14 +207,14 @@ void InitStreamer(void) {
     sWss.onDoLoop([](bool &envir) {
         const int PORT = 9000;
 
-        WebSocketEvents_t events = {0};
+        lw_wss_events_t events = {0};
         events.OnOpened = onWsOpened;
         events.OnClosed = onWsClosed;
         events.OnHandle = onWsHandle;
         events.OnAuthorise = onWsAuthorise;
-        WebSocketsHandle_t ws = WebSocketsCreate("127.0.0.1", PORT, WS_TIMEOUT_MS, WS_MAX_CLIENTS);
+        lw_wss_handle_t ws = lw_wss_create("127.0.0.1", PORT, WS_TIMEOUT_MS, WS_MAX_CLIENTS);
         assert(ws);
-        WebSocketsSetEvents(ws, &events);
+        lw_wss_set_events(ws, &events);
 
         while (envir) {
             sleep(1);
@@ -222,7 +222,7 @@ void InitStreamer(void) {
 
         sFlvLive0.cleanup();
         sFlvLive1.cleanup();
-        WebSocketsDelete(ws);
+        lw_wss_delete(ws);
     });
 
     /*

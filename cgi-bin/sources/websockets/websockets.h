@@ -51,9 +51,9 @@ extern "C" {
 #define WS_TIMEOUT_MS               (2000)
 
 typedef struct {
-    void (*OnOpened)(int SocketFileDescriptor);
-    void (*OnClosed)(int SocketFileDescriptor);
-    void (*OnHandle)(int SocketFileDescriptor, const unsigned char *Message, uint64_t msgSize, int type);
+    void (*OnOpened)(int sfd);
+    void (*OnClosed)(int sfd);
+    void (*OnHandle)(int sfd, const unsigned char *Message, uint64_t msgSize, int type);
     /**
      * Called during the HTTP upgrade, AFTER the request line/headers have been
      * received but BEFORE the "101 Switching Protocols" reply is sent. It is
@@ -63,19 +63,19 @@ typedef struct {
      * answers "401 Unauthorized" and drops the socket without firing OnOpened).
      * When NULL, every well-formed handshake is accepted (legacy behaviour).
      */
-    int (*OnAuthorise)(int SocketFileDescriptor, const char *RawHandshake);
-} WebSocketEvents_t;
+    int (*OnAuthorise)(int sfd, const char *RawHandshake);
+} lw_wss_events_t;
 
-typedef struct WebSocketsContext_t *WebSocketsHandle_t;
+typedef struct lw_wss_t *lw_wss_handle_t;
 
-extern WebSocketsHandle_t WebSocketsCreate(const char *Host, uint16_t Port, uint32_t TimeoutMs, uint8_t Total);
-extern void WebSocketsSetEvents(WebSocketsHandle_t handle, const WebSocketEvents_t *events);
-extern void WebSocketsDelete(WebSocketsHandle_t handle);
+extern lw_wss_handle_t lw_wss_create(const char *Host, uint16_t Port, uint32_t TimeoutMs, uint8_t Total);
+extern void lw_wss_set_events(lw_wss_handle_t handle, const lw_wss_events_t *events);
+extern void lw_wss_delete(lw_wss_handle_t handle);
 
-extern int WebSocketsSendText(int Client, const char *Message, uint64_t size);
-extern int WebSocketsSendBinary(int Client, const char *Message, uint64_t size);
-extern int WebSocketsCloseClient(int SocketFileDescriptor);
-extern const char *WebSocketsGetPath(int SocketFileDescriptor);
+extern int lw_wss_send_str(int Client, const char *Message, uint64_t size);
+extern int lw_wss_send_bin(int Client, const char *Message, uint64_t size);
+extern int lw_wss_close_peer(int sfd);
+extern const char *lw_wss_get_path(int sfd);
 
 #ifdef __cplusplus
 }
