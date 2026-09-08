@@ -25,6 +25,7 @@ static const char *FW_UPGRADE_DIR = RAM_ROOT "/ipc_firmware";
 static const char *FW_UPGRADE_PACKAGED = RAM_ROOT "/ipc_firmware/upgrade.bin";
 static const char *FW_UPGRADE_MANIFEST = RAM_ROOT "/ipc_firmware/manifest.json";
 static const char *FW_UPGRADE_FILENAME = RAM_ROOT "/ipc_firmware/p2p_client.tar";
+static const uint32_t FW_UPGRADE_MAX_SIZE = (64 * 1024 * 1024);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -626,7 +627,6 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
         return;
     }
 
-    const std::string secret = stGetEnvirVariables(message, "HTTP_X_UPGRADE_SECRET");
     std::string md5sum = stGetEnvirVariables(message, "HTTP_X_FIRMWARE_MD5");
     for (char &let : md5sum) {
         let = static_cast<char>(std::tolower(static_cast<unsigned char>(let)));
@@ -646,6 +646,12 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
         end < start || total == 0 || end >= total) {
         js["success"] = false;
         js["message"] = "Invalid firmware Content-Range";
+        HTTP_ResponseDataAsJSON(message, 400, js.dump());
+        return;
+    }
+    if (total > FW_UPGRADE_MAX_SIZE) {
+        js["success"] = false;
+        js["message"] = "Firmware package too large";
         HTTP_ResponseDataAsJSON(message, 400, js.dump());
         return;
     }
@@ -720,24 +726,32 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     /**
      * Validate ENCRYPTION and SIGNATURE after download complete
      */
-    int iUpgradeStatus = 200;
-    std::string stUpgradeError = "Unknown error";
+    int error = 1;
+    int iUpgradeStatus = 202;
+    std::string stUpgradeError = "Unknown reason";
     do {
         int rc = runCommands("cd %s && unpackage-upgrade.sh %s", FW_UPGRADE_DIR, FW_UPGRADE_PACKAGED);
         CGI_SYSD("Unpackage upgrade status return %d\r\n", rc);
         if (rc != 0) {
             if (rc == 10) {
                 stUpgradeError = "Package decryption failed / Invalid package key / Corrupted package";
+                iUpgradeStatus = 422;
             } else if (rc == 11) {
                 stUpgradeError = "Package extraction failed";
+                iUpgradeStatus = 422;
             } else if (rc == 12) {
                 stUpgradeError = "Failed to load signing certificate";
+                iUpgradeStatus = 500;
             } else if (rc == 13 || rc == 14) {
                 stUpgradeError = "Firmware package is not integrity";
+                iUpgradeStatus = 422;
             } else if (rc == 20) {
                 stUpgradeError = "Invalid firmware signature";
+                iUpgradeStatus = 422;
+            } else {
+                iUpgradeStatus = 500;
             }
-            iUpgradeStatus = 422;
+
             js["success"] = false;
             js["message"] = stUpgradeError;
             break;
@@ -778,6 +792,7 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
             break;
         }
 
+        error = 0;
         js["success"] = true;
         js["message"] = "Download complete. Firmware upgrade has started, wait a few minutes";
         sMainTimer.dispatch("upgrade", 1500, []() {
@@ -788,10 +803,13 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     }
     while (0);
     
-    unlink(FW_UPGRADE_PACKAGED);
     sUpgradeMD5Sum.clear();
     sUpgradeTotalSize = 0;
     sUpgradeBytesReceived = 0;
+    if (error != 0) {
+        runCommands("rm -rf %s/*", FW_UPGRADE_DIR); /* Remove all packages in FW_UPGRADE_DIR */
+    }
+    unlink(FW_UPGRADE_PACKAGED);
     HTTP_ResponseDataAsJSON(message, iUpgradeStatus, js.dump());
 }
 

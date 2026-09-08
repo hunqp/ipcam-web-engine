@@ -28,6 +28,11 @@ else
     export STRIP="${CROSS_COMPILER}-strip"
     export RANLIB="${CROSS_COMPILER}-ranlib"
 
+    # This uClibc toolchain does not redirect pwritev for 64-bit off_t.
+    if [ "$CROSS_COMPILER" = "arm-rockchip830-linux-uclibcgnueabihf" ]; then
+        export ac_cv_func_pwritev=no
+    fi
+
     HOST_OPT="--host=$(basename "$CROSS_COMPILER")"
 
     # Force pkg-config to find target libraries only
