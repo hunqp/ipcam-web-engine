@@ -176,19 +176,19 @@ int main() {
             }
             else if (method == "GET" && path.compare(0, 9, "/records/") == 0) {
                 /**
-                 * Recorded clips on the SD card. These used to be served with
-                 * NO authentication at all through a lighttpd
-                 * 'alias.url = ( "/records/" => "/mnt/sdcard/" )' mapping.
-                 * They are now routed through FastCGI so a valid session is
-                 * required before any file is returned.
+                 * This API now allows clients to directly access playlists from 
+                 * "/mnt/sdcard" after credential validation.
+                 * CRITICAL: Direct access via `lighttpd.conf` using 
+                 * `alias.url = ( "/records/" => "/mnt/sdcard/" )` is insecure and bypasses 
+                 * credential checks.
                  */
                 eUserLevels role = Customer;
                 if (!HTTP_IsAuthenticated(message, (int*)&role)) {
                     CGI_SYSW("Record download unauthorized: %s\r\n", path.c_str());
                     HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
                 } else {
-                    extern void HTTP_ServeRecordFile(FCGX_Request& message, const std::string& urlPath);
-                    HTTP_ServeRecordFile(message, path);
+                    extern void redirectPlaylistDir(FCGX_Request& message, const std::string& qrDatetime);
+                    redirectPlaylistDir(message, path);
                 }
             }
             else {
