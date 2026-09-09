@@ -61,7 +61,6 @@ static bool validateCredentials(const std::string &username, const std::string &
 
     int size = Kiwi_Credentials_Get(list, 32);
     for (int id = 0; id < size; id++) {
-        CGI_SYSI("%s:%s:%d\r\n", list[id].username, list[id].password, list[id].role);
         if (strcmp(list[id].username, username.c_str()) == 0 &&
             strcmp(list[id].password, password.c_str()) == 0) {
             *usrLevels = list[id].role;

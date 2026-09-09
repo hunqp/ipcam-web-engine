@@ -15,6 +15,8 @@ void jwt_authorise_setup(void) {
     for (size_t i = 0; i < length; ++i) {
         JWT_AUTHORISE_SECRET += chars[distribution(generator)];
     }
+
+    JWT_AUTHORISE_SECRET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg"; // test
 }
 
 bool jwt_authorise_validate_token(const std::string& token) {

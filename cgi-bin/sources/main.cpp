@@ -184,11 +184,10 @@ int main() {
                  */
                 eUserLevels role = Customer;
                 if (!HTTP_IsAuthenticated(message, (int*)&role)) {
-                    CGI_SYSW("Record download unauthorized: %s\r\n", path.c_str());
                     HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
                 } else {
-                    extern void redirectPlaylistDir(FCGX_Request& message, const std::string& qrDatetime);
-                    redirectPlaylistDir(message, path);
+                    extern void redirectFileRecords(FCGX_Request& message, const std::string& qrDatetime);
+                    redirectFileRecords(message, path);
                 }
             }
             else {
