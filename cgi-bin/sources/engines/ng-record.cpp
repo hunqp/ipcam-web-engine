@@ -89,10 +89,7 @@ static bool decryptor(FCGX_Request &message, const std::string &filename) {
     close(fd);
 
     /* Remove temporary file for reclaim RAM space */
-    if (rc == 0) {
-        unlink(tmp);
-        CGI_SYSD("Remove records: %s\r\n", tmp);
-    }
+    unlink(tmp);
 
     return true;
 }
