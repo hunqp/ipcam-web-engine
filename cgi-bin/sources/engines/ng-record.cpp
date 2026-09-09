@@ -22,25 +22,27 @@ static void putHeader(FCGX_Request &m, const char *fmt, long long v) {
 }
 
 /* Decrypt `src` -> temp file -> open + unlink (anonymous) -> stream range -> close. */
-static void decryptor(FCGX_Request &message, const char *filename) {
+static bool decryptor(FCGX_Request &message, const std::string &filename) {
     char tmp[64] = {0};
     snprintf(tmp, sizeof(tmp), RAM_ROOT "/.%ld.mp4", (long)getpid());
+
     /* Remove previous temporary */
     unlink(tmp);
 
-    int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename, tmp);
-    if (rc == 0) {
-        /* Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename. */
-        filename = (const char*)tmp;
+    int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename.c_str(), tmp);
+    if (rc != 0) {
+        /**
+         * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename. 
+         * Otherwise, return false to let lighttpd serve directly records in '/mnt/sdcard'
+         */
+        return false;
     }
 
-    CGI_SYSD("[%d] Selected records: %s\r\n", rc, filename);
-
     struct stat st = {0};
-    int fd = open(filename, O_RDONLY);
+    int fd = open(tmp, O_RDONLY);
     if (fd < 0) {
         HTTP_ResponseDataAsHTML(message, 500, "<h1>500</h1>");
-        return;
+        return true;
     }
     fstat(fd, &st);
 
@@ -52,7 +54,7 @@ static void decryptor(FCGX_Request &message, const char *filename) {
         if (!HTTP_ExtractRangeHeader(range, total, a, b)) {
             close(fd);
             HTTP_ResponseRangeNotSatisfiable(message, total);
-            return;
+            return true;
         }
         partial = !(a == 0 && b == total - 1);
     }
@@ -91,6 +93,8 @@ static void decryptor(FCGX_Request &message, const char *filename) {
         unlink(tmp);
         CGI_SYSD("Remove records: %s\r\n", tmp);
     }
+
+    return true;
 }
 
 /*
@@ -106,7 +110,9 @@ void redirectFileRecords(FCGX_Request &message, const std::string &path) {
         return;
     }
 
-    decryptor(message, filename.c_str());
+    if (decryptor(message, filename)) {
+        return;
+    }
 
     /* Plain clip: let lighttpd serve it (Content-Type/Length/Range all handled) */
     FCGX_FPrintF(message.out, "Status: 200 OK\r\n");
