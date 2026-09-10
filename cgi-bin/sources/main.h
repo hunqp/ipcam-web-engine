@@ -35,6 +35,7 @@
 #define APP_VERSION_FILE                APP_USERDATA_DIR "/version"
 #define APP_IPC_CONFIGURE_FILE          APP_USERDATA_DIR "/rkipc.ini"
 #define APP_JOURNAL_LOG_FILE            APP_USERDATA_DIR "/journal.log"
+#define APP_WIRE_CONFIGURE_FILE         APP_USERDATA_DIR "/wired.conf"
 #define APP_WIFI_CONFIGURE_FILE         APP_USERDATA_DIR "/wpa_supplicant.conf"
 #define APP_REGISTERED_STATUS_FILE		APP_USERDATA_DIR "/registered"
 #define APP_UNIQUE_SERIAL_FILE		    APP_USERDATA_DIR "/serial-number"

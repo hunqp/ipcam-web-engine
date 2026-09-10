@@ -71,3 +71,23 @@ std::string runShellCommands(const char *fmt, ...) {
 std::string MD5Sum(const std::string& filename) {
     return runShellCommands("md5sum %s | awk '{print $1}'", filename.c_str());
 }
+
+int setMachineTimezone(const std::string timezone) {
+    if (timezone.empty() ||
+        timezone.find("..") != std::string::npos ||
+        timezone.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/_+-.") != std::string::npos) {
+            return -1;
+        }
+
+    std::string filename = "/oem/usr/share/zoneinfo/" + timezone;
+    if (access(filename.c_str(), F_OK) != 0) {
+        return -1;
+    }
+
+    wrteFile("/userdata/TZ", timezone);
+    int rc = runCommands("ln -sf /oem/usr/share/zoneinfo/%s /etc/localtime", timezone.c_str());
+    if (rc == 0) {
+        tzset();
+    }
+    return rc;
+}

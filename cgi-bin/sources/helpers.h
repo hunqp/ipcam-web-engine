@@ -24,5 +24,8 @@ extern size_t HTTP_ExtractBodyContentLength(FCGX_Request& message);
 extern std::string HTTP_ExtractBodyContent(FCGX_Request& message);
 extern std::string HTTP_GenerateCookies(const std::string& username, int role);
 extern bool HTTP_IsAuthenticated(FCGX_Request& message, int *role = NULL);
+/* Raw session JWT from the request (session cookie, else "Authorization: Bearer
+ * <jwt>"); "" if neither is present. */
+extern std::string HTTP_SessionToken(FCGX_Request& message);
 
 #endif /* HELPERS_H */

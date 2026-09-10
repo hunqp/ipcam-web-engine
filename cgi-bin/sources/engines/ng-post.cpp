@@ -44,6 +44,7 @@ static nlohmann::json reloadComponents(const char *filename, int role) {
             break;
 
             case Operator: {
+                js["system"]["accountSettings"] = false;
                 js["system"]["firmwareUpgrade"] = false;
             }
             break;
@@ -132,6 +133,8 @@ static inline bool getAttemptsLoginAddr(FCGX_Request& request, sockaddr_storage&
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
     int status = 401;
+    /* Buffers sized for the account store (KIWI_CREDENTIALS_T fields are
+     * char[32]); the sscanf field widths below MUST stay <= 31 to match. */
     char username[32] = {0};
     char password[32] = {0};
     std::string extraHeader{};
@@ -161,8 +164,9 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
         return;
     }
 
-    /* %127[^&] means read up to 127 characters */
-    if (sscanf(body.c_str(), "username=%127[^&]&password=%127s", username, password) == 2 &&
+    /* Field widths (31) are one less than the 32-byte buffers: sscanf appends a
+     * NUL, and a longer value could never match a stored credential anyway. */
+    if (sscanf(body.c_str(), "username=%31[^&]&password=%31[^&]", username, password) == 2 &&
         strlen(username) > 0 && strlen(password) > 0) {
         HTTP_DecodeSubmitForm(username, username);
         HTTP_DecodeSubmitForm(password, password);
@@ -189,9 +193,12 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
 }
 
 static void APIV1_CGI_UserLogout(FCGX_Request &message, nlohmann::json &js) {
+    /* Clearing the cookie only stops a compliant browser from resending it;
+     * deny-list this exact token in RAM so a copied/stolen one dies now too. */
+    jwt_authorise_reclaim_token(HTTP_SessionToken(message));
     std::string cookie = std::string("Set-Cookie: ") + JWT_AUTHORISE_SESSION +
                          "=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 "
-                         "00:00:00 GMT; HttpOnly; SameSite=Strict";
+                         "00:00:00 GMT; HttpOnly; Secure; SameSite=Strict";
     js["data"]["redirect"] = WWW_REDIRECT_LOGIN;
     HTTP_ResponseDataAsJSON(message, 200, js.dump(), cookie);
 }
@@ -585,18 +592,27 @@ static void APIV1_CGI_NetworkLanMode(FCGX_Request &message, nlohmann::json &js) 
         sMainTimer.dispatch("network", 1000, [_js]() {
             bool dhcp = _js["dhcp"].get<bool>();
             char *method = (dhcp) ? (char*)"dhcp" : (char*)"static";
-            std::string ip_address = _js["ip_address"].get<std::string>();
-            std::string subnet_mask = _js["subnet_mask"].get<std::string>();
-            std::string gateway = _js["gateway"].get<std::string>();
-            std::string dns0 = _js["dns"][0].get<std::string>();
-            std::string dns1 = "";
+            std::string ADDRESS = _js["ip_address"].get<std::string>();
+            std::string NETMAKS = _js["subnet_mask"].get<std::string>();
+            std::string GATEWAY = _js["gateway"].get<std::string>();
+            std::string PREFERRED_DNS = _js["dns"][0].get<std::string>();
+            std::string SECONDARY_DNS = "";
             if (_js["dns"].size() > 1) {
-                dns1 = _js["dns"][1].get<std::string>();
+                SECONDARY_DNS = _js["dns"][1].get<std::string>();
             }
-            rk_network_ipv4_set("eth0", method, (char*)ip_address.c_str(), (char*)subnet_mask.c_str(), (char*)gateway.c_str());
-            if (!dhcp) {
-                rk_network_dns_set((char*)dns0.c_str(), dns1.length() > 0 ? (char*)dns1.c_str() : NULL);
+            std::string str;
+            if (dhcp) {
+                /* Example: "dhcp" */
+                str = "dhcp";
+            } else {
+                /* Example: "static 192.168.2.111 255.255.255.0 192.168.2.253 192.168.2.253" */
+                str = "static " + ADDRESS + " " + NETMAKS + " " + GATEWAY + " " + PREFERRED_DNS + " " + SECONDARY_DNS;
             }
+            const std::string WIRED_RUNTIME_CONFIG = "/tmp/wired.conf";
+            /* Apply in runtime */
+            wrteFile(WIRED_RUNTIME_CONFIG, str);
+            /* Storage configuration */
+            wrteFile(APP_WIRE_CONFIGURE_FILE, str);
         });
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
@@ -616,6 +632,7 @@ static void APIV1_CGI_SystemReset(FCGX_Request &message, nlohmann::json &js) {
         unlink(APP_JOURNAL_LOG_FILE);
         unlink(APP_ACCOUNTS_DB_FILE);
         unlink(APP_IPC_CONFIGURE_FILE);
+        unlink(APP_WIRE_CONFIGURE_FILE);
         unlink(APP_WIFI_CONFIGURE_FILE);
         unlink(APP_REGISTERED_STATUS_FILE);
         runCommands("rm -f %s/*", APP_INTEGRATION_DIR);
@@ -848,17 +865,26 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
 }
 
 static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
+    int rc = -1;
+    int status = 200;
     std::string body = HTTP_ExtractBodyContent(message);
     nlohmann::json _js = nlohmann::json::parse(body);
     {
         std::string timezone = _js["timezone"].get<std::string>();
-        wrteFile("/userdata/TZ", timezone);
-        runCommands("ln -sf /oem/usr/share/zoneinfo/%s /etc/localtime", timezone.c_str());
-        tzset();
-        wrteFile(APP_NTPD_CONFIGURE_FILE, _js.dump());
+        rc = setMachineTimezone(timezone);
+        if (rc == 0) {
+            wrteFile(APP_NTPD_CONFIGURE_FILE, _js.dump());
+        }
     }
-    HTTP_ResponseDataAsJSON(message, 200, js.dump());
+
+    if (rc != 0) {
+        status = 400;
+        js["success"] = false;
+        js["message"] = "Operation failure";
+    }
+    HTTP_ResponseDataAsJSON(message, status, js.dump());
 }
+
 
 static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &js) {
     std::string body = HTTP_ExtractBodyContent(message);
@@ -944,6 +970,9 @@ static void APIV1_CGI_SystemUsersUpdate(FCGX_Request &message, nlohmann::json &j
         HTTP_ResponseDataAsJSON(message, 400, js.dump());
         return;
     }
+    /* No explicit session revoke needed: jwt_authorise_check() reads the role
+     * live from the DB on every request, and a new password changes the "cred"
+     * fingerprint so tokens issued earlier stop verifying. */
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 
@@ -964,6 +993,8 @@ static void APIV1_CGI_SystemUsersDelete(FCGX_Request &message, nlohmann::json &j
         HTTP_ResponseDataAsJSON(message, 400, js.dump());
         return;
     }
+    /* No explicit session revoke needed: jwt_authorise_check() rejects any
+     * token whose "sub" is no longer in the accounts DB. */
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 
@@ -1297,9 +1328,9 @@ HashTableEntrance POST_HashMap[] = {
     /*
         @Industrial IO
     */
-    {(char *)"/api/v1/industrial/rs485"         , false ,   Operator      , APIV1_CGI_IndustrialRS485      },
+    {(char *)"/api/v1/industrial/rs485"         , true  ,   Operator      , APIV1_CGI_IndustrialRS485      },
     {(char *)"/api/v1/industrial/qr_barcode"    , true  ,   Operator      , APIV1_CGI_IndustriaQRBarcode   },
-    {(char *)"/api/v1/industrial/endpoint"      , false ,   Operator      , APIV1_CGI_IndustriaEndpoint    },
+    {(char *)"/api/v1/industrial/endpoint"      , true  ,   Operator      , APIV1_CGI_IndustriaEndpoint    },
     /*
         @End of function
     */

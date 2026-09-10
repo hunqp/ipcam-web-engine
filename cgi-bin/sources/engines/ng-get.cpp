@@ -239,9 +239,7 @@ static void APIV1_CGI_NetworkStream(FCGX_Request &message, nlohmann::json &js) {
 static void APIV1_CGI_NetworkStatus(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json &data = js["data"];
 
-    /*
-        @wifi
-    */
+    /* INTERFACE: WLAN0 */
     {
         bool isConnected = false;
         const char *ifname = (const char *)"wlan0";
@@ -261,24 +259,47 @@ static void APIV1_CGI_NetworkStatus(FCGX_Request &message, nlohmann::json &js) {
         data["wifi"]["subnet_mask"] = std::string(subnet4);
         data["wifi"]["dns"].push_back(std::string(dns));
     }
-    /*
-        @lan
-    */
+    /* INTERFACE: ETH0 */
     {
-        bool dhcp = false;
+        bool dhcp = true;
+        std::string configure {};
+        KIWI_NETWORK_NIC_STATUS status;
         const char *ifname = (const char *)"eth0";
         char ip4[16] = {0}, mac[18] = {0}, gw4[16] = {0}, subnet4[16] = {0}, dns[16] = {0};
 
-        auto nic = Kiwi_NIC_GetStatus(ifname);
-        if (nic != KIWI_IF_UNKNOWN) {
-            dhcp = rk_param_get_int("network.static:enable", 0) == 0 ? true : false;
-            Kiwi_DNS_GetAddress(NULL, dns);
-            Kiwi_IP4_GetAddress(ifname, NULL, ip4);
-            Kiwi_MAC_GetAddress(ifname, NULL, mac);
-            Kiwi_GATEWAY_GetAddress(ifname, NULL, gw4, NULL, subnet4);
+        const std::string WIRED_RUNTIME_CONFIG = "/tmp/wired.conf";
+        if (access(WIRED_RUNTIME_CONFIG.c_str(), F_OK) == 0) {
+            configure = readFile(WIRED_RUNTIME_CONFIG);
+            /* Example: "static 192.168.2.111 255.255.255.0 192.168.2.253 192.168.2.253" */
+            std::istringstream ss(configure);
+            std::string mode;
+            ss >> mode;
+            if (mode == "static") {
+                dhcp = false;
+                std::string ip;
+                std::string mask;
+                std::string dns1;
+                std::string gateway;
+                ss >> ip >> mask >> gateway >> dns1;
+                snprintf(ip4, sizeof(ip4), "%s", ip.c_str());
+                snprintf(subnet4, sizeof(subnet4), "%s", mask.c_str());
+                snprintf(gw4, sizeof(gw4), "%s", gateway.c_str());
+                snprintf(dns, sizeof(dns), "%s", dns1.c_str());
+            }
         }
+
+        if (dhcp) {
+            status = Kiwi_NIC_GetStatus(ifname);
+            if (status != KIWI_IF_UNKNOWN) {
+                Kiwi_DNS_GetAddress(NULL, dns);
+                Kiwi_IP4_GetAddress(ifname, NULL, ip4);
+                Kiwi_GATEWAY_GetAddress(ifname, NULL, gw4, NULL, subnet4);
+            }
+        }
+        Kiwi_MAC_GetAddress(ifname, NULL, mac);
+        
         data["lan"]["dhcp"] = dhcp;
-        data["lan"]["connected"] = (nic == KIWI_IF_UP) ? true : false;
+        data["lan"]["connected"] = (status == KIWI_IF_UP) ? true : false;
         data["lan"]["ip_address"] = std::string(ip4);
         data["lan"]["mac_address"] = std::string(mac);
         data["lan"]["gateway"] = std::string(gw4);

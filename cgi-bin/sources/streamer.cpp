@@ -136,11 +136,12 @@ static int onWsAuthorise(int cId, const char *raw) {
     (void)cId;
 
     std::string token = wsExtractToken(raw);
-    if (token.empty() || !jwt_authorise_validate_token(token)) {
+    int role = Customer;
+    if (token.empty() || !jwt_authorise_check(token, &role)) {
         CGI_SYSW("WS upgrade rejected: missing or invalid session token\r\n");
         return -1;
     }
-    if (jwt_authorise_get_role(token) > Customer) {
+    if (role > Customer) {
         CGI_SYSW("WS upgrade rejected: insufficient privilege\r\n");
         return -1;
     }

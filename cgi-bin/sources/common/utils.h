@@ -21,4 +21,6 @@ bool assignJSValue(const nlohmann::json& js, const std::string& key, T& value) {
 
 extern std::string MD5Sum(const std::string& filename);
 
+extern int setMachineTimezone(const std::string timezone);
+
 #endif /* UTILS_H */

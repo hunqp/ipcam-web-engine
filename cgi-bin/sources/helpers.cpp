@@ -216,43 +216,33 @@ static std::string HTTP_GetCookieValue(
     return "";
 }
 
-bool HTTP_IsAuthenticated(FCGX_Request& message, int *role) {
-    bool success = false;
-    /*  Let check JWT token from:
-        Cookie Authorization Header 
-    */
+std::string HTTP_SessionToken(FCGX_Request& message) {
     std::string token = HTTP_GetCookieValue(stGetEnvirVariables(message, "HTTP_COOKIE"), JWT_AUTHORISE_SESSION);
     if (!token.empty()) {
-        bool success = jwt_authorise_validate_token(token);
-        if (success && role) {
-            *role = jwt_authorise_get_role(token);
-        }
-        return success;
+        return token;
     }
-    /* Check JWT from Authorization: Bearer <token> */
     const std::string bearer = "Bearer ";
     const std::string authorization = stGetEnvirVariables(message, "HTTP_AUTHORIZATION");
+    if (authorization.compare(0, bearer.size(), bearer) == 0) {
+        return authorization.substr(bearer.size());
+    }
+    return "";
+}
 
-    if (authorization.compare(0, bearer.size(), bearer) != 0) {
-        return false;
-    }
-    token = authorization.substr(bearer.size());
-    if (token.empty()) {
-        return false;
-    }
-    success = jwt_authorise_validate_token(token);
-    if (success && role) {
-        *role = jwt_authorise_get_role(token);
-    }
-    return success;
+bool HTTP_IsAuthenticated(FCGX_Request& message, int *role) {
+    /*  jwt_authorise_check() verifies signature + expiry and then re-binds the
+        token to the live account: role comes from the accounts DB, and a
+        deleted account, a changed password or a logged-out session is rejected. */
+    return jwt_authorise_check(HTTP_SessionToken(message), role);
 }
 
 std::string HTTP_GenerateCookies(const std::string& username, int role) {
-    std::string jwt = jwt_authorise_generate_token(username, role);
+    std::string jwt = jwt_authorise_generate_token(username, role,
+                                                   jwt_authorise_get_credentials(username));
     std::string cookie = std::string("Set-Cookie: ") + JWT_AUTHORISE_SESSION + "=" +
                          jwt +
-                         "; Path=/; Max-Age=" + std::to_string(JWT_AUTHORISE_EXPIRED_SECONDS) + 
-                         "; HttpOnly; SameSite=Strict";
+                         "; Path=/; Max-Age=" + std::to_string(JWT_AUTHORISE_EXPIRED_SECONDS) +
+                         "; HttpOnly; Secure; SameSite=Strict";
     return cookie;
 }
 
