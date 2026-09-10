@@ -6,13 +6,16 @@
 #include <pthread.h>
 #include <strings.h>
 
-#include "cgi_debug.h"
-#include "basethread.h"
+#include "main.h"
+/* Include FLV libraries */
 #include "streamer.h"
 #include "flv_live.h"
-#include "websockets.h"
 #include "flv_stream.h"
+/* Include other libraries */
 #include "authorise.h"
+#include "cgi_debug.h"
+#include "basethread.h"
+#include "websockets.h"
 #include "kiwi_ringbuffer.h"
 
 #define FLV_LIVE0_NAME (const char*)"live0.flv"
@@ -61,18 +64,10 @@ static inline void closedStream() {
     if (sFlvLive0.isEmpty() && sFlvLive1.isEmpty()) 
         sFlvAudio0.close();
 
-    /* Cleanup record files */
+    /* Cleanup records cache */
     extern void ngrCleanup(void);
     ngrCleanup();
 }
-
-
-/**
- * Minimum privilege level allowed to watch the live stream. Mirrors eUserLevels
- * in main.h (Administrator = 0, Operator = 1, Customer = 2); a LARGER number
- * means a LOWER privilege, so "role <= WS_STREAM_MIN_ROLE" == "allowed".
- */
-#define WS_STREAM_MIN_ROLE (2 /* Customer */)
 
 /**
  * Pull the session JWT out of a raw WebSocket handshake. Browsers attach the
@@ -145,7 +140,7 @@ static int onWsAuthorise(int cId, const char *raw) {
         CGI_SYSW("WS upgrade rejected: missing or invalid session token\r\n");
         return -1;
     }
-    if (jwt_authorise_get_role(token) > WS_STREAM_MIN_ROLE) {
+    if (jwt_authorise_get_role(token) > Customer) {
         CGI_SYSW("WS upgrade rejected: insufficient privilege\r\n");
         return -1;
     }
@@ -184,11 +179,7 @@ static void onWsClosed(int cId) {
     closedStream();
 }
 
-static void onWsHandle(
-    int client,
-    const unsigned char *message,
-    uint64_t msgSize,
-    int type) {
+static void onWsHandle(int client, const unsigned char *message, uint64_t msgSize, int type) {
     (void)client;
     (void)message;
     (void)msgSize;
@@ -215,14 +206,14 @@ void InitStreamer(void) {
             }
         });
 
-        WebSocketEvents_t events = {0};
-        events.pxOnOpened = onWsOpened;
-        events.pxOnClosed = onWsClosed;
-        events.pxOnHandle = onWsHandle;
-        events.pxOnAuthorise = onWsAuthorise;
+        WebSocketEvents_t wsEvents = {0};
+        wsEvents.pxOnOpened = onWsOpened;
+        wsEvents.pxOnClosed = onWsClosed;
+        wsEvents.pxOnHandle = onWsHandle;
+        wsEvents.pxOnAuthorise = onWsAuthorise;
         WebSocketHandle_t ws = xWebSocketCreate("127.0.0.1", PORT, wsTIMEOUT_MS, wsMAX_CLIENTS);
         assert(ws);
-        vWebSocketSetEvents(ws, &events);
+        vWebSocketSetEvents(ws, &wsEvents);
 
         while (envir) {
             sleep(1);

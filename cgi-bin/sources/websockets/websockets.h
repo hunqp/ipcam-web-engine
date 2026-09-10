@@ -74,7 +74,7 @@ extern "C" {
 
 /* The fixed header block written ahead of the "Sec-WebSocket-Accept"
  * value on a successful handshake. */
-#define wsHANDSHAKE_ACCEPT_HEADER                  \
+#define wsHANDSHAKE_ACCEPT_HEADER                 \
     "HTTP/1.1 101 Switching Protocols\r\n"        \
     "Upgrade: websocket\r\n"                      \
     "Connection: Upgrade\r\n"                     \
