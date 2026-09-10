@@ -60,6 +60,10 @@ static inline void closedStream() {
         sFlvVideo1.close();
     if (sFlvLive0.isEmpty() && sFlvLive1.isEmpty()) 
         sFlvAudio0.close();
+
+    /* Cleanup record files */
+    extern void ngrCleanup(void);
+    ngrCleanup();
 }
 
 

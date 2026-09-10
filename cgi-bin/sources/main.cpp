@@ -186,8 +186,8 @@ int main() {
                 if (!HTTP_IsAuthenticated(message, (int*)&role)) {
                     HTTP_ResponseDataAsJSON(message, 401, "{\"success\": false, \"message\": \"Unauthorized\"}");
                 } else {
-                    extern void redirectFileRecords(FCGX_Request& message, const std::string& qrDatetime);
-                    redirectFileRecords(message, path);
+                    extern void ngrRedirectPlace(FCGX_Request& message, const std::string& qrDatetime);
+                    ngrRedirectPlace(message, path);
                 }
             }
             else {

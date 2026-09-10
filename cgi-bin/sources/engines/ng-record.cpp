@@ -12,30 +12,74 @@
 
 #define RECORDS_ROOT_DIR        (const char*)"/mnt/sdcard"
 #define RECORDS_DECRYPT_TOOL    (const char*)"mp4-decrypt"
+#define RECORDS_DECRYPT_DIR     (const char*)"/tmp/.rec-plain"
+#define RECORDS_ROTATE_SIZE     (3)
 
 extern std::string stGetEnvirVariables(FCGX_Request &request, const char *name);
 
-static void putHeader(FCGX_Request &m, const char *fmt, long long v) {
+static struct {
+    int counts = 0;
+    struct {
+        std::string alias;
+        std::string named;
+    } records[RECORDS_ROTATE_SIZE];
+} sCacheFiles;
+
+static int randomId = 0;
+
+static inline void addAlias(const std::string& alias, const std::string& named) {
+    if (!sCacheFiles.records[sCacheFiles.counts].alias.empty()) {
+        unlink(sCacheFiles.records[sCacheFiles.counts].alias.c_str());
+    }
+    sCacheFiles.records[sCacheFiles.counts].alias.assign(alias);
+    sCacheFiles.records[sCacheFiles.counts].named.assign(named);
+    int n = (++sCacheFiles.counts) % RECORDS_ROTATE_SIZE;
+    sCacheFiles.counts = n;
+}
+
+static inline bool getAlias(const std::string& name, std::string& alias) {
+    for (uint8_t i = 0; i < RECORDS_ROTATE_SIZE; ++i) {
+        if (sCacheFiles.records[i].named == name) {
+            alias.assign(sCacheFiles.records[i].alias);
+            return true;
+        }
+    }
+    return false;
+}
+static inline void putHeader(FCGX_Request &m, const char *fmt, long long v) {
     char b[96];
     snprintf(b, sizeof(b), fmt, v);
-    FCGX_PutStr(b, (int)strlen(b), m.out);     /* FCGX_FPrintF can't do %lld */
+    FCGX_PutStr(b, (int)strlen(b), m.out); /* FCGX_FPrintF can't do %lld */
 }
 
 /* Decrypt `src` -> temp file -> open + unlink (anonymous) -> stream range -> close. */
 static bool decryptor(FCGX_Request &message, const std::string &filename) {
     char tmp[64] = {0};
-    snprintf(tmp, sizeof(tmp), RAM_ROOT "/.%ld.mp4", (long)getpid());
-
-    /* Remove previous temporary */
-    unlink(tmp);
-
-    int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename.c_str(), tmp);
-    if (rc != 0) {
+    
+    std::string alias;
+    bool exist = getAlias(filename, alias);
+    if (!exist) {
         /**
-         * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename. 
-         * Otherwise, return false to let lighttpd serve directly records in '/mnt/sdcard'
+         * This file is not exist in memory, so we need to decrypt it and store it in RAM
+         * Then we can use `tmp` as filename
+         * Random number between 50 and 200 for making random filename
          */
-        return false;
+        int recNum = (rand() % (4321 - 1234 + 1) + 1234);
+        snprintf(tmp, sizeof(tmp), RECORDS_DECRYPT_DIR "/.%d.mp4", (++randomId) + recNum);
+
+        mkdir(RECORDS_DECRYPT_DIR, 0755);
+        int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename.c_str(), tmp);
+        if (rc != 0) {
+            /**
+             * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename. 
+             * Otherwise, return false to let lighttpd serve directly records in '/mnt/sdcard'
+             */
+            return false;
+        }
+        addAlias(tmp, filename);
+    } else {
+        /* If exist, we can use `alias` as filename and reuse this */
+        snprintf(tmp, sizeof(tmp), "%s", alias.c_str());
     }
 
     struct stat st = {0};
@@ -88,9 +132,6 @@ static bool decryptor(FCGX_Request &message, const std::string &filename) {
     }
     close(fd);
 
-    /* Remove temporary file for reclaim RAM space */
-    unlink(tmp);
-
     return true;
 }
 
@@ -98,7 +139,7 @@ static bool decryptor(FCGX_Request &message, const std::string &filename) {
     The path MUST-BE as format "/records/<yy-mm-dd>/[yy-mm-ddThh.mm.ss].mp4"
     So we need to resolve it into a canonical path under "/mnt/sdcard"
 */
-void redirectFileRecords(FCGX_Request &message, const std::string &path) {
+void ngrRedirectPlace(FCGX_Request &message, const std::string &path) {
     std::string filename = path;
     filename.replace(0, std::string("/records").length(), RECORDS_ROOT_DIR);
 
@@ -115,4 +156,16 @@ void redirectFileRecords(FCGX_Request &message, const std::string &path) {
     FCGX_FPrintF(message.out, "Status: 200 OK\r\n");
     FCGX_FPrintF(message.out, "Cache-Control: no-store\r\n");
     FCGX_FPrintF(message.out, "X-Sendfile: %s\r\n\r\n", filename.c_str());
+}
+
+void ngrCleanup(void) {
+    for (uint8_t i = 0; i < RECORDS_ROTATE_SIZE; ++i) {
+        const char *alias = sCacheFiles.records[i].alias.c_str();
+        if (access(alias, F_OK) == 0) {
+            unlink(alias);
+        }
+        sCacheFiles.counts = 0;
+        sCacheFiles.records[i].alias.clear();
+        sCacheFiles.records[i].named.clear();
+    }
 }
