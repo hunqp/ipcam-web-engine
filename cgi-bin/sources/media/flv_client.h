@@ -8,6 +8,22 @@
 
 class FlvClient {
 public:
+    /**
+     * Transport used to reach the peer behind an FlvClient. FlvClient only
+     * knows about this plain function-pointer interface, never about the
+     * concrete transport (WebSocket, TCP, ...) that implements it - the
+     * integration layer (streamer.cpp) is the only place allowed to know
+     * both sides and wire them together via setTransport().
+     */
+    struct Transport {
+        void (*closePeer)(int clientId) = nullptr;
+        bool (*sendBinary)(int clientId, const void *data, size_t size) = nullptr;
+    };
+
+    /** Installs the transport shared by every FlvClient. Call once at startup,
+     *  before any client can be created, from the integration layer. */
+    static void setTransport(const Transport &transport);
+
      explicit FlvClient(int cid);
     ~FlvClient() = default;
 
@@ -44,8 +60,12 @@ public:
 private:
     bool writeHeader();
     bool writeSequenceHeader();
+    bool sendBinary(const void *data, size_t size);
+    static bool outgoing(const uint8_t *data, size_t size, void *user);
 
 private:
+    static Transport sTransport;
+
     int mId = -1;
     FlvNalUnit mVps {};
     FlvNalUnit mSps {};
@@ -64,11 +84,5 @@ private:
         bool isSequenceHeaderWritten = false;
     } mAAC;
 };
-
-/*************************************************
- * User Portable Function
- *************************************************/
-extern void vPortFlvClosure(FlvClient *me);
-extern bool xPortFlvSendBin(FlvClient *me, void *data, size_t size);
 
 #endif /* FLV_CLIENT_H */

@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
+
 #define _POSIX_C_SOURCE 200809L
 #include "sha1.h"
 #include "base64.h"
@@ -24,117 +25,146 @@
 #include <string.h>
 #include <strings.h>
 
-/**
- * @dir src/
- * @brief Handshake routines directory
- *
- * @file Handshake.c
- * @brief Handshake routines.
- */
+/*-----------------------------------------------------------*/
 
-/**
- * @brief Gets the field Sec-WebSocket-Accept on response, by
- * an previously informed key.
+/*
+ * xGetHandshakeAccept
  *
- * @param configKey Sec-WebSocket-Key
- * @param dest source to be stored the value.
+ * Computes the "Sec-WebSocket-Accept" value for a previously received
+ * "Sec-WebSocket-Key": SHA-1( key + RFC 6455 GUID ), base64-encoded.
  *
- * @return Returns 0 if success and a negative number
- * otherwise.
+ * @param pcKey      The client's "Sec-WebSocket-Key" value.
+ * @param ppucDest   Receives an allocated buffer holding the base64
+ *                    accept string; the caller must free() it.
+ *
+ * @return 0 on success, a negative number otherwise.
  *
  * @attention This is part of the internal API and is documented just
  * for completeness.
  */
-int GetHandshakeAccept(char *configKey, unsigned char **dest) {
-	unsigned char hash[sha1HASH_SIZE]; /* SHA-1 Hash */
-	Sha1Context_t ctx; /* SHA-1 Context */
-	char *str; /* WebSocket key + magic string */
+int xGetHandshakeAccept( char * pcKey, unsigned char ** ppucDest )
+{
+    unsigned char pucHash[ sha1HASH_SIZE ]; /* SHA-1 hash.                 */
+    Sha1Context_t xShaContext;              /* SHA-1 context.              */
+    char * pcKeyAndMagic;                   /* WebSocket key + magic string. */
 
-	/* Invalid key. */
-	if (!configKey)
-		return (-1);
+    /* Invalid key. */
+    if( pcKey == NULL )
+    {
+        return -1;
+    }
 
-	str = calloc(1, sizeof(char) * (configKEY_LEN + configMS_LEN + 1));
-	if (!str)
-		return (-1);
+    pcKeyAndMagic = calloc( 1, sizeof( char ) * ( wsKEY_LEN + wsMAGIC_STRING_LEN + 1 ) );
 
-	strncpy(str, configKey, configKEY_LEN);
-	strcat(str, configMAGIC_STRING);
+    if( pcKeyAndMagic == NULL )
+    {
+        return -1;
+    }
 
-	Sha1Reset(&ctx);
-	Sha1Input(&ctx, (const uint8_t *)str, configKEYMS_LEN);
-	Sha1Result(&ctx, hash);
+    strncpy( pcKeyAndMagic, pcKey, wsKEY_LEN );
+    strcat( pcKeyAndMagic, wsMAGIC_STRING );
 
-	*dest = Base64Encode(hash, sha1HASH_SIZE, NULL);
-	*(*dest + strlen((const char *)*dest) - 1) = '\0';
-	free(str);
-	return (0);
+    xSha1Reset( &xShaContext );
+    xSha1Input( &xShaContext, ( const uint8_t * ) pcKeyAndMagic, wsKEY_MAGIC_LEN );
+    xSha1Result( &xShaContext, pucHash );
+
+    *ppucDest = pucBase64Encode( pucHash, sha1HASH_SIZE, NULL );
+    *( *ppucDest + strlen( ( const char * ) *ppucDest ) - 1 ) = '\0';
+    free( pcKeyAndMagic );
+    return 0;
 }
+/*-----------------------------------------------------------*/
 
-/**
- * @brief Finds the ocorrence of @p needle in @p haystack, case
- * insensitive.
+/*
+ * prvStrStrICase
  *
- * @param haystack Target string to be searched.
- * @param needle   Substring to search for.
+ * Finds the first occurrence of pcNeedle in pcHaystack, case-insensitive.
  *
- * @returns If found, returns a pointer at the beginning of the
- * found substring. Otherwise, returns NULL.
+ * @param pcHaystack Target string to be searched.
+ * @param pcNeedle   Substring to search for.
+ *
+ * @return A pointer to the start of the found substring, or NULL if not
+ *         found.
  */
-static const char *StrStrICase(const char *haystack, const char *needle) {
-	size_t length;
-	for (length = strlen(needle); *haystack; haystack++)
-		if (!strncasecmp(haystack, needle, length))
-			return haystack;
-	return (NULL);
-}
+static const char * prvStrStrICase( const char * pcHaystack, const char * pcNeedle )
+{
+    size_t xLength;
 
-/**
- * @brief Gets the complete response to accomplish a succesfully
- * Handshake.
+    for( xLength = strlen( pcNeedle ); *pcHaystack; pcHaystack++ )
+    {
+        if( !strncasecmp( pcHaystack, pcNeedle, xLength ) )
+        {
+            return pcHaystack;
+        }
+    }
+
+    return NULL;
+}
+/*-----------------------------------------------------------*/
+
+/*
+ * xGetHandshakeResponse
  *
- * @param hsrequest  Client request.
- * @param hsresponse Server response.
+ * Builds the complete "101 Switching Protocols" response for a client
+ * handshake request. Tokenises pcRequest in place while scanning for the
+ * "Sec-WebSocket-Key" header.
  *
- * @return Returns 0 if success and a negative number
- * otherwise.
+ * @param pcRequest   Client request ( modified in place by strtok_r() ).
+ * @param ppcResponse Receives an allocated, ready-to-send response
+ *                     string; the caller must free() it.
+ *
+ * @return 0 on success, a negative number otherwise.
  *
  * @attention This is part of the internal API and is documented just
  * for completeness.
  */
-int GetHandshakeResponse(char *hsrequest, char **hsresponse) {
-	unsigned char *accept; /* Accept message.     */
-	char *saveptr;         /* strtok_r() pointer. */
-	char *s;               /* Current string.     */
-	int ret;               /* Return value.       */
+int xGetHandshakeResponse( char * pcRequest, char ** ppcResponse )
+{
+    unsigned char * pucAccept; /* Accept message.     */
+    char * pcSavePtr;          /* strtok_r() cursor.  */
+    char * pcToken;            /* Current token.      */
+    int lReturn;                /* Return value.       */
 
-	saveptr = NULL;
-	for (s = strtok_r(hsrequest, "\r\n", &saveptr); s != NULL;
-		 s = strtok_r(NULL, "\r\n", &saveptr)) {
-		if (StrStrICase(s, configHANDSHAKE_REQ) != NULL)
-			break;
-	}
+    pcSavePtr = NULL;
 
-	/* Ensure that we have a valid pointer. */
-	if (s == NULL)
-		return (-1);
+    for( pcToken = strtok_r( pcRequest, "\r\n", &pcSavePtr ); pcToken != NULL;
+         pcToken = strtok_r( NULL, "\r\n", &pcSavePtr ) )
+    {
+        if( prvStrStrICase( pcToken, wsHANDSHAKE_KEY_HEADER ) != NULL )
+        {
+            break;
+        }
+    }
 
-	saveptr = NULL;
-	s = strtok_r(s, " ", &saveptr);
-	s = strtok_r(NULL, " ", &saveptr);
+    /* Ensure that we have a valid pointer. */
+    if( pcToken == NULL )
+    {
+        return -1;
+    }
 
-	ret = GetHandshakeAccept(s, &accept);
-	if (ret < 0)
-		return (ret);
+    pcSavePtr = NULL;
+    pcToken = strtok_r( pcToken, " ", &pcSavePtr );
+    pcToken = strtok_r( NULL, " ", &pcSavePtr );
 
-	*hsresponse = malloc(sizeof(char) * configHANDSHAKE_ACCLEN);
-	if (*hsresponse == NULL)
-		return (-1);
+    lReturn = xGetHandshakeAccept( pcToken, &pucAccept );
 
-	strcpy(*hsresponse, configHANDSHAKE_ACCEPT);
-	strcat(*hsresponse, (const char *)accept);
-	strcat(*hsresponse, "\r\n\r\n");
+    if( lReturn < 0 )
+    {
+        return lReturn;
+    }
 
-	free(accept);
-	return (0);
+    *ppcResponse = malloc( sizeof( char ) * wsHANDSHAKE_ACCEPT_LEN );
+
+    if( *ppcResponse == NULL )
+    {
+        return -1;
+    }
+
+    strcpy( *ppcResponse, wsHANDSHAKE_ACCEPT_HEADER );
+    strcat( *ppcResponse, ( const char * ) pucAccept );
+    strcat( *ppcResponse, "\r\n\r\n" );
+
+    free( pucAccept );
+    return 0;
 }
+/*-----------------------------------------------------------*/

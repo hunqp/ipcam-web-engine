@@ -5,7 +5,6 @@
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
  */
-
 #ifndef BASE64_H
 #define BASE64_H
 
@@ -16,30 +15,33 @@ extern "C" {
 #endif
 
 /**
- * Encode binary data into Base64 string.
+ * pucBase64Encode
  *
- * \param[in] src Pointer to source binary buffer.
- * \param[in] srcLen Length of source buffer in bytes.
- * \param[out] dstLen Pointer to encoded output length.
- * \return Pointer to allocated Base64 encoded buffer,
- *         or NULL on failure.
+ * Encodes binary data into a newly allocated Base64 string.
  *
- * \note Caller is responsible for freeing returned buffer.
+ * @param pucSource    Pointer to the source binary buffer.
+ * @param xSourceLen   Length of the source buffer, in bytes.
+ * @param pxDestLen    Optional; receives the length of the encoded output.
+ *
+ * @return Pointer to an allocated, NUL-terminated Base64 buffer, or NULL
+ *         on failure. The caller owns the returned buffer and must
+ *         free() it.
  */
-unsigned char * Base64Encode(const unsigned char *src, size_t srcLen, size_t *dstLen);
+unsigned char * pucBase64Encode( const unsigned char * pucSource, size_t xSourceLen, size_t * pxDestLen );
 
 /**
- * Decode Base64 string into binary data.
+ * pucBase64Decode
  *
- * \param[in] src Pointer to Base64 encoded buffer.
- * \param[in] srcLen Length of Base64 buffer in bytes.
- * \param[out] dstLen Pointer to decoded output length.
- * \return Pointer to allocated decoded buffer,
- *         or NULL on failure.
+ * Decodes a Base64 string into newly allocated binary data.
  *
- * \note Caller is responsible for freeing returned buffer.
+ * @param pucSource    Pointer to the Base64-encoded buffer.
+ * @param xSourceLen   Length of the Base64 buffer, in bytes.
+ * @param pxDestLen    Receives the length of the decoded output.
+ *
+ * @return Pointer to an allocated decoded buffer, or NULL on failure.
+ *         The caller owns the returned buffer and must free() it.
  */
-unsigned char * Base64Decode(const unsigned char *src, size_t srcLen, size_t *dstLen);
+unsigned char * pucBase64Decode( const unsigned char * pucSource, size_t xSourceLen, size_t * pxDestLen );
 
 #ifdef __cplusplus
 }

@@ -67,13 +67,6 @@ static inline void closedStream() {
 }
 
 
-void vPortFlvClosure(FlvClient *me) {
-    lw_wss_close_peer(me->getId());
-}
-bool xPortFlvSendBin(FlvClient *me, void *data, size_t size) {
-    return (lw_wss_send_bin(me->getId(), (const char*)data, (uint64_t)size) >= 0);
-}
-
 /**
  * Minimum privilege level allowed to watch the live stream. Mirrors eUserLevels
  * in main.h (Administrator = 0, Operator = 1, Customer = 2); a LARGER number
@@ -160,7 +153,7 @@ static int onWsAuthorise(int cId, const char *raw) {
 }
 
 static void onWsOpened(int cId) {
-    const char *select = lw_wss_get_path(cId);
+    const char *select = pcWebSocketGetPath(cId);
     CGI_SYSD("Selected stream: %s\r\n", select ? select : "NULL");
     if (!select) {
         return;
@@ -211,14 +204,25 @@ void InitStreamer(void) {
     sWss.onDoLoop([](bool &envir) {
         const int PORT = 9000;
 
-        lw_wss_events_t events = {0};
-        events.OnOpened = onWsOpened;
-        events.OnClosed = onWsClosed;
-        events.OnHandle = onWsHandle;
-        events.OnAuthorise = onWsAuthorise;
-        lw_wss_handle_t ws = lw_wss_create("127.0.0.1", PORT, WS_TIMEOUT_MS, WS_MAX_CLIENTS);
+        /* Wire the FLV module to this transport. FlvClient only ever sees
+         * FlvClient::Transport - it has no idea these are WebSocket calls. */
+        FlvClient::setTransport({
+            .closePeer = [](int clientId) {
+                xWebSocketClosePeer(clientId);
+            },
+            .sendBinary = [](int clientId, const void *data, size_t size) {
+                return xWebSocketSendBinary(clientId, (const char *)data, (uint64_t)size) >= 0;
+            }
+        });
+
+        WebSocketEvents_t events = {0};
+        events.pxOnOpened = onWsOpened;
+        events.pxOnClosed = onWsClosed;
+        events.pxOnHandle = onWsHandle;
+        events.pxOnAuthorise = onWsAuthorise;
+        WebSocketHandle_t ws = xWebSocketCreate("127.0.0.1", PORT, wsTIMEOUT_MS, wsMAX_CLIENTS);
         assert(ws);
-        lw_wss_set_events(ws, &events);
+        vWebSocketSetEvents(ws, &events);
 
         while (envir) {
             sleep(1);
@@ -226,7 +230,7 @@ void InitStreamer(void) {
 
         sFlvLive0.cleanup();
         sFlvLive1.cleanup();
-        lw_wss_delete(ws);
+        vWebSocketDelete(ws);
     });
 
     /*

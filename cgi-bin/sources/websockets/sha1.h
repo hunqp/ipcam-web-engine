@@ -1,62 +1,87 @@
+/*
+ * sha1.h
+ *
+ * Minimal SHA-1 implementation, restyled to the FreeRTOS coding
+ * convention: public functions named "<return-type prefix>Sha1<Verb>",
+ * Hungarian-notation struct fields, "prv"-prefixed private helpers in
+ * sha1.c, Allman braces.
+ */
+
 #ifndef SHA1_H
 #define SHA1_H
 
 #include <stdint.h>
 
-enum {
+enum
+{
     sha1SUCCESS = 0,
     sha1NULL,
     sha1INPUT_TOO_LONG,
     sha1STATE_ERROR
 };
 
-#define sha1HASH_SIZE 20
+#define sha1HASH_SIZE    20
 
-typedef struct {
-    /* Message Digest */
-    uint32_t IntermediateHash[sha1HASH_SIZE / 4];
+/* Sha1Context_t: running state of one SHA-1 computation. Reset with
+ * xSha1Reset(), fed with one or more calls to xSha1Input(), and read
+ * back with xSha1Result(). */
+typedef struct
+{
+    /* Message digest ( 5 x 32-bit words ). */
+    uint32_t ulIntermediateHash[ sha1HASH_SIZE / 4 ];
 
-    /* Message length in bits */
-    uint32_t LengthOfHighBits;
-    uint32_t LengthOfLowBits; 
+    /* Message length, in bits, split across two 32-bit halves. */
+    uint32_t ulLengthHighBits;
+    uint32_t ulLengthLowBits;
 
-    /* Index into message block array */
-    int_least16_t MessageBlockIndex;
-    /* 512-bit message blocks */
-    uint8_t MessageBlock[64];
+    /* Write cursor into ucMessageBlock. */
+    int_least16_t sMessageBlockIndex;
 
-    /* Is the digest computed */
-    int IsDigestComputed;
-    /* Is the message digest corrupted? */
-    int IsDigestCorrupted;
+    /* Current 512-bit ( 64-byte ) message block being assembled. */
+    uint8_t ucMessageBlock[ 64 ];
+
+    /* Non-zero once xSha1Result() has computed the final digest. */
+    int xIsDigestComputed;
+
+    /* Non-zero once too much input has made the digest unusable
+     * ( see sha1STATE_ERROR ). */
+    int xIsDigestCorrupted;
 } Sha1Context_t;
 
 /**
- * Reset SHA1 context State.
+ * xSha1Reset
  *
- * \param[in,out] me Pointer to SHA1 context.
- * \return 0 on success, -1 on failure.
+ * Resets a SHA-1 context to its initial state, ready for xSha1Input().
+ *
+ * @param pxContext Pointer to the SHA-1 context to reset.
+ * @return sha1SUCCESS on success, sha1NULL if pxContext is NULL.
  */
-extern int Sha1Reset(Sha1Context_t *me);
+extern int xSha1Reset( Sha1Context_t * pxContext );
 
 /**
- * Feed input data into SHA1 context.
+ * xSha1Input
  *
- * \param[in,out] me Pointer to SHA1 context.
- * \param[in] message Pointer to input message buffer.
- * \param[in] size Size of input message in bytes.
- * \return 0 on success, -1 on failure.
+ * Feeds ulSize bytes of pucMessage into the running SHA-1 computation.
+ * May be called multiple times to hash data incrementally.
+ *
+ * @param pxContext Pointer to the SHA-1 context.
+ * @param pucMessage Pointer to the input message buffer.
+ * @param ulSize     Size of the input message, in bytes.
+ * @return sha1SUCCESS on success, sha1NULL or sha1STATE_ERROR on failure.
  */
-extern int Sha1Input(Sha1Context_t *me, const uint8_t *message, unsigned size);
+extern int xSha1Input( Sha1Context_t * pxContext, const uint8_t * pucMessage, unsigned ulSize );
 
 /**
- * Finalize SHA1 calculation and get message digest.
+ * xSha1Result
  *
- * \param[in,out] me Pointer to SHA1 context.
- * \param[out] messageDigest Output SHA1 digest buffer.
- *                           Must be sha1HASH_SIZE bytes.
- * \return 0 on success, -1 on failure.
+ * Finalises the SHA-1 computation and writes out the message digest.
+ * After this call the context must be reset before it can be reused.
+ *
+ * @param pxContext      Pointer to the SHA-1 context.
+ * @param pucMessageDigest Output buffer, must be sha1HASH_SIZE bytes.
+ * @return sha1SUCCESS on success, sha1NULL on a NULL argument, or the
+ *         corruption code recorded earlier by xSha1Input().
  */
-extern int Sha1Result(Sha1Context_t *me, uint8_t messageDigest[sha1HASH_SIZE]);
+extern int xSha1Result( Sha1Context_t * pxContext, uint8_t pucMessageDigest[ sha1HASH_SIZE ] );
 
 #endif /* SHA1_H */

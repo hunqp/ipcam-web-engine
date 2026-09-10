@@ -19,42 +19,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 #ifndef UTF8_DECODE_H
 #define UTF8_DECODE_H
 
 #include <inttypes.h>
 #include <stddef.h>
 
-/* UTF8 return State. */
-#define utf8ACCEPT (0)
-#define utf8REJECT (1)
+/* UTF-8 decoder states. */
+#define utf8ACCEPT    ( 0 )
+#define utf8REJECT    ( 1 )
 
 /**
- * Check whether a UTF-8 string is valid.
+ * xUtf8IsValid
  *
- * \param[in] s Pointer to null-terminated UTF-8 string.
- * \return Non-zero if valid, 0 if invalid.
+ * Checks whether a NUL-terminated UTF-8 string is valid.
+ *
+ * @param pucString Pointer to the NUL-terminated UTF-8 string.
+ * @return Non-zero if valid, 0 if invalid.
  */
-extern int Utf8IsValid(uint8_t *s);
+extern int xUtf8IsValid( uint8_t * pucString );
 
 /**
- * Check whether a UTF-8 buffer with given length is valid.
+ * xUtf8IsValidLength
  *
- * \param[in] s Pointer to UTF-8 buffer.
- * \param[in] len Length of buffer in bytes.
- * \return Non-zero if valid, 0 if invalid.
+ * Checks whether a UTF-8 buffer of known length is valid.
+ *
+ * @param pucString Pointer to the UTF-8 buffer.
+ * @param xLen      Length of the buffer, in bytes.
+ * @return Non-zero if valid, 0 if invalid.
  */
-extern int Utf8IsValidLength(uint8_t *s, size_t len);
+extern int xUtf8IsValidLength( uint8_t * pucString, size_t xLen );
 
 /**
- * Validate UTF-8 buffer with State tracking.
+ * ulUtf8IsValidLengthState
  *
- * \param[in] s Pointer to UTF-8 buffer.
- * \param[in] len Length of buffer in bytes.
- * \param[in] State Previous UTF-8 decoder State.
- * \return Updated UTF-8 decoder State.
+ * Validates a UTF-8 buffer while carrying the decoder state across calls,
+ * so a message split over multiple fragments can be validated
+ * incrementally without re-scanning bytes already checked.
+ *
+ * @param pucString Pointer to the UTF-8 buffer.
+ * @param xLen      Length of the buffer, in bytes.
+ * @param ulState   Decoder state returned by a previous call ( utf8ACCEPT
+ *                   for a fresh message ).
+ * @return The updated decoder state; compare against utf8ACCEPT /
+ *         utf8REJECT.
  */
-extern uint32_t Utf8IsValidLengthState(uint8_t *s, size_t len, uint32_t State);
+extern uint32_t ulUtf8IsValidLengthState( uint8_t * pucString, size_t xLen, uint32_t ulState );
 
 #endif

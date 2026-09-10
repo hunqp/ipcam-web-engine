@@ -11,117 +11,186 @@
 #include <stdint.h>
 #include "base64.h"
 
-static const unsigned char Base64Table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/* The 64-character Base64 alphabet ( RFC 1341 5.2 ), plus the trailing
+ * NUL that sizeof() picks up and every scan below stops at. */
+static const unsigned char ucBase64Table[ 65 ] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-unsigned char * Base64Encode(const unsigned char *src, size_t srcLen, size_t *dstLen) {
-	unsigned char *out, *pos;
-	const unsigned char *end, *in;
-	size_t olen;
-	int line_len;
+/*-----------------------------------------------------------*/
 
-	olen = srcLen * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
-	olen += olen / 72; /* line feeds */
-	olen++; /* nul termination */
-	if (olen < srcLen)
-		return NULL; /* integer overflow */
-	out = malloc(olen);
-	if (out == NULL)
-		return NULL;
+unsigned char * pucBase64Encode( const unsigned char * pucSource, size_t xSourceLen, size_t * pxDestLen )
+{
+    unsigned char * pucOut;
+    unsigned char * pucPos;
+    const unsigned char * pucEnd;
+    const unsigned char * pucIn;
+    size_t xOutLen;
+    int lLineLen;
 
-	end = src + srcLen;
-	in = src;
-	pos = out;
-	line_len = 0;
-	while (end - in >= 3) {
-		*pos++ = Base64Table[in[0] >> 2];
-		*pos++ = Base64Table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
-		*pos++ = Base64Table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
-		*pos++ = Base64Table[in[2] & 0x3f];
-		in += 3;
-		line_len += 4;
-		if (line_len >= 72) {
-			*pos++ = '\n';
-			line_len = 0;
-		}
-	}
+    xOutLen = xSourceLen * 4 / 3 + 4; /* 3-byte blocks to 4-byte. */
+    xOutLen += xOutLen / 72;          /* Line feeds.              */
+    xOutLen++;                        /* NUL termination.         */
 
-	if (end - in) {
-		*pos++ = Base64Table[in[0] >> 2];
-		if (end - in == 1) {
-			*pos++ = Base64Table[(in[0] & 0x03) << 4];
-			*pos++ = '=';
-		} else {
-			*pos++ = Base64Table[((in[0] & 0x03) << 4) |
-					      (in[1] >> 4)];
-			*pos++ = Base64Table[(in[1] & 0x0f) << 2];
-		}
-		*pos++ = '=';
-		line_len += 4;
-	}
+    if( xOutLen < xSourceLen )
+    {
+        return NULL; /* Integer overflow. */
+    }
 
-	if (line_len)
-		*pos++ = '\n';
+    pucOut = malloc( xOutLen );
 
-	*pos = '\0';
-	if (dstLen)
-		*dstLen = pos - out;
-	return out;
+    if( pucOut == NULL )
+    {
+        return NULL;
+    }
+
+    pucEnd = pucSource + xSourceLen;
+    pucIn = pucSource;
+    pucPos = pucOut;
+    lLineLen = 0;
+
+    while( ( pucEnd - pucIn ) >= 3 )
+    {
+        *pucPos++ = ucBase64Table[ pucIn[ 0 ] >> 2 ];
+        *pucPos++ = ucBase64Table[ ( ( pucIn[ 0 ] & 0x03 ) << 4 ) | ( pucIn[ 1 ] >> 4 ) ];
+        *pucPos++ = ucBase64Table[ ( ( pucIn[ 1 ] & 0x0f ) << 2 ) | ( pucIn[ 2 ] >> 6 ) ];
+        *pucPos++ = ucBase64Table[ pucIn[ 2 ] & 0x3f ];
+        pucIn += 3;
+        lLineLen += 4;
+
+        if( lLineLen >= 72 )
+        {
+            *pucPos++ = '\n';
+            lLineLen = 0;
+        }
+    }
+
+    if( pucEnd - pucIn )
+    {
+        *pucPos++ = ucBase64Table[ pucIn[ 0 ] >> 2 ];
+
+        if( ( pucEnd - pucIn ) == 1 )
+        {
+            *pucPos++ = ucBase64Table[ ( pucIn[ 0 ] & 0x03 ) << 4 ];
+            *pucPos++ = '=';
+        }
+        else
+        {
+            *pucPos++ = ucBase64Table[ ( ( pucIn[ 0 ] & 0x03 ) << 4 ) | ( pucIn[ 1 ] >> 4 ) ];
+            *pucPos++ = ucBase64Table[ ( pucIn[ 1 ] & 0x0f ) << 2 ];
+        }
+
+        *pucPos++ = '=';
+        lLineLen += 4;
+    }
+
+    if( lLineLen )
+    {
+        *pucPos++ = '\n';
+    }
+
+    *pucPos = '\0';
+
+    if( pxDestLen != NULL )
+    {
+        *pxDestLen = pucPos - pucOut;
+    }
+
+    return pucOut;
 }
+/*-----------------------------------------------------------*/
 
-unsigned char * Base64Decode(const unsigned char *src, size_t srcLen, size_t *dstLen) {
-	unsigned char dtable[256], *out, *pos, block[4], tmp;
-	size_t i, Count, olen;
-	int pad = 0;
+unsigned char * pucBase64Decode( const unsigned char * pucSource, size_t xSourceLen, size_t * pxDestLen )
+{
+    unsigned char ucDecodeTable[ 256 ];
+    unsigned char * pucOut;
+    unsigned char * pucPos;
+    unsigned char ucBlock[ 4 ];
+    unsigned char ucTemp;
+    size_t xIndex;
+    size_t xCount;
+    size_t xOutLen;
+    int lPadCount = 0;
 
-	memset(dtable, 0x80, 256);
-	for (i = 0; i < sizeof(Base64Table) - 1; i++)
-		dtable[Base64Table[i]] = (unsigned char) i;
-	dtable['='] = 0;
+    memset( ucDecodeTable, 0x80, 256 );
 
-	Count = 0;
-	for (i = 0; i < srcLen; i++) {
-		if (dtable[src[i]] != 0x80)
-			Count++;
-	}
+    for( xIndex = 0; xIndex < sizeof( ucBase64Table ) - 1; xIndex++ )
+    {
+        ucDecodeTable[ ucBase64Table[ xIndex ] ] = ( unsigned char ) xIndex;
+    }
 
-	if (Count == 0 || Count % 4)
-		return NULL;
+    ucDecodeTable[ ( unsigned char ) '=' ] = 0;
 
-	olen = Count / 4 * 3;
-	pos = out = malloc(olen);
-	if (out == NULL)
-		return NULL;
+    xCount = 0;
 
-	Count = 0;
-	for (i = 0; i < srcLen; i++) {
-		tmp = dtable[src[i]];
-		if (tmp == 0x80)
-			continue;
+    for( xIndex = 0; xIndex < xSourceLen; xIndex++ )
+    {
+        if( ucDecodeTable[ pucSource[ xIndex ] ] != 0x80 )
+        {
+            xCount++;
+        }
+    }
 
-		if (src[i] == '=')
-			pad++;
-		block[Count] = tmp;
-		Count++;
-		if (Count == 4) {
-			*pos++ = (block[0] << 2) | (block[1] >> 4);
-			*pos++ = (block[1] << 4) | (block[2] >> 2);
-			*pos++ = (block[2] << 6) | block[3];
-			Count = 0;
-			if (pad) {
-				if (pad == 1)
-					pos--;
-				else if (pad == 2)
-					pos -= 2;
-				else {
-					/* Invalid padding */
-					free(out);
-					return NULL;
-				}
-				break;
-			}
-		}
-	}
+    if( ( xCount == 0U ) || ( xCount % 4U ) )
+    {
+        return NULL;
+    }
 
-	*dstLen = pos - out;
-	return out;
+    xOutLen = xCount / 4 * 3;
+    pucPos = pucOut = malloc( xOutLen );
+
+    if( pucOut == NULL )
+    {
+        return NULL;
+    }
+
+    xCount = 0;
+
+    for( xIndex = 0; xIndex < xSourceLen; xIndex++ )
+    {
+        ucTemp = ucDecodeTable[ pucSource[ xIndex ] ];
+
+        if( ucTemp == 0x80 )
+        {
+            continue;
+        }
+
+        if( pucSource[ xIndex ] == '=' )
+        {
+            lPadCount++;
+        }
+
+        ucBlock[ xCount ] = ucTemp;
+        xCount++;
+
+        if( xCount == 4U )
+        {
+            *pucPos++ = ( ucBlock[ 0 ] << 2 ) | ( ucBlock[ 1 ] >> 4 );
+            *pucPos++ = ( ucBlock[ 1 ] << 4 ) | ( ucBlock[ 2 ] >> 2 );
+            *pucPos++ = ( ucBlock[ 2 ] << 6 ) | ucBlock[ 3 ];
+            xCount = 0;
+
+            if( lPadCount )
+            {
+                if( lPadCount == 1 )
+                {
+                    pucPos--;
+                }
+                else if( lPadCount == 2 )
+                {
+                    pucPos -= 2;
+                }
+                else
+                {
+                    /* Invalid padding. */
+                    free( pucOut );
+                    return NULL;
+                }
+
+                break;
+            }
+        }
+    }
+
+    *pxDestLen = pucPos - pucOut;
+    return pucOut;
 }
+/*-----------------------------------------------------------*/

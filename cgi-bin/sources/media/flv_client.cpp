@@ -1,11 +1,17 @@
 #include "flv_client.h"
 
-static bool outgoing(const uint8_t *data, size_t size, void *user) {
+FlvClient::Transport FlvClient::sTransport {};
+
+void FlvClient::setTransport(const Transport &transport) {
+    sTransport = transport;
+}
+
+bool FlvClient::outgoing(const uint8_t *data, size_t size, void *user) {
     FlvClient *me = static_cast<FlvClient *>(user);
     if (!me) {
         return false;
     }
-    return xPortFlvSendBin(me, (void*)data, size);
+    return me->sendBinary(data, size);
 }
 
 FlvClient::FlvClient(int cid) :
@@ -18,7 +24,16 @@ int FlvClient::getId() {
 }
 
 void FlvClient::closure() {
-    vPortFlvClosure(this);
+    if (sTransport.closePeer) {
+        sTransport.closePeer(mId);
+    }
+}
+
+bool FlvClient::sendBinary(const void *data, size_t size) {
+    if (!sTransport.sendBinary) {
+        return false;
+    }
+    return sTransport.sendBinary(mId, data, size);
 }
 
 bool FlvClient::isWaitIdr() const {
