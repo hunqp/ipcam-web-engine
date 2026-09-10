@@ -40,6 +40,7 @@
 #define APP_UNIQUE_SERIAL_FILE		    APP_USERDATA_DIR "/serial-number"
 #define APP_ACCOUNTS_DB_FILE            APP_USERDATA_DIR "/accounts.db"
 #define APP_SECRET_UNIQUE_FILE          "/oem/usr/etc/lighttpd/server.key"
+#define APP_DASHBOARD_CONFIGURE_FILE    "/oem/usr/etc/lighttpd/components.json"
 /*
     @User customize configurations for intergration
 */

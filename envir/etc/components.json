@@ -1,0 +1,46 @@
+{
+	"liveview": true,
+	"playback": true,
+
+	"network": {
+		"wifiSettings": true,
+		"lanSettings": true,
+		"protocolSettings": true,
+		"rtmpSettings": true
+	},
+
+	"video": {
+		"mainStreamSettings": true,
+		"subStreamSettings": true
+	},
+
+	"audioSettings": true,
+
+	"image": {
+		"displaySettings": true,
+		"osdSettings": true,
+		"privacyMaskSettings": true,
+		"lightingSettings": true
+	},
+
+	"storageSettings": true,
+
+	"event": {
+		"smartDetectionSettings": true,
+		"alarmSettings": true
+	},
+
+	"industrialIo": {
+		"rs485Settings": true,
+		"qrBarcodeSettings": true,
+		"integrationSettings": true
+	},
+
+	"system": {
+		"accountSettings": true,
+		"timeSettings": true,
+		"generalSettings": true,
+		"systemInformation": true,
+		"firmwareUpgrade": true
+	}
+}

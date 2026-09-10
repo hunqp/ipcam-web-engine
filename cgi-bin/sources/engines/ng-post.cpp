@@ -32,6 +32,41 @@ extern std::string stGetEnvirVariables(FCGX_Request &request, const char *name);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static nlohmann::json reloadComponents(const char *filename, int role) {
+    nlohmann::json js;
+
+    try {
+        if (access(filename, F_OK) == 0) {
+            std::string content = readFile(filename);
+            js = nlohmann::json::parse(content);
+            switch (role) {
+            case Administrator:
+            break;
+
+            case Operator: {
+                js["system"]["firmwareUpgrade"] = false;
+            }
+            break;
+
+            case Customer: {
+                js["system"]["timeSettings"] = false;
+                js["system"]["accountSettings"] = false;
+                js["system"]["generalSettings"] = false;
+                js["system"]["firmwareUpgrade"] = false;
+            }
+            break;
+            
+            default:
+            break;
+            }
+        }
+    }
+    catch (const std::exception &e) {
+        CGI_SYSE("%s", e.what());
+    }
+    return js;
+}
+
 static bool isStrongPassword(const std::string &password) {
     /* Minimum length check (e.g., 8 characters) */
     if (password.length() < 8) {
@@ -141,6 +176,7 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
         js["data"]["role"] = role;
         js["data"]["redirect"] = WWW_REDIRECT_PREVIEW;
         js["data"]["username"] = std::string(username);
+        js["data"]["permissions"] = reloadComponents(APP_DASHBOARD_CONFIGURE_FILE, role);
         attempts->reset(false);
     } else {
         attempts->onFailedAttempts(u32Ts);
