@@ -940,7 +940,7 @@ int rk_system_get_hardware_id(char **value) {
   return rk_client_get_string((char *)__func__, value);
 }
 
-int rk_system_set_deivce_name(const char *value) {
+int rk_system_set_device_name(const char *value) {
   return rk_client_set_string((char *)__func__, value);
 }
 
@@ -1834,6 +1834,14 @@ int rk_watchdog_ping() {
 
 // gpio
 int rk_gpio_set_spotlight_mode(int mode) {
+  return rk_client_set_int((char *)__func__, mode);
+}
+
+int rk_gpio_get_spotlight_mode(int *mode) {
+  return rk_client_get_int((char *)__func__, mode);
+}
+
+int rk_gpio_set_spotlight_dimmer(int mode) {
   return rk_client_set_int((char *)__func__, mode);
 }
 

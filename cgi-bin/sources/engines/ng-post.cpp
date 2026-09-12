@@ -407,7 +407,9 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
             } else {
                 value = (char *)"auto";
             }
+			int irDimmer = _js["smart_ir"]["ir_dimmer"].get<int>();
             rc |= rk_isp_set_night_to_day(0, value);
+			rc |= rk_isp_set_light_brightness(0, irDimmer);
         }
         /*
             @osd
@@ -779,7 +781,7 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
      */
     int error = 1;
     int iUpgradeStatus = 202;
-    std::string stUpgradeError = "Unknown reason";
+    std::string stUpgradeError = "Invalid firmware package has been uploaded";
     do {
         int rc = runCommands("cd %s && unpackage-upgrade.sh %s", FW_UPGRADE_DIR, FW_UPGRADE_PACKAGED);
         CGI_SYSD("Unpackage upgrade status return %d\r\n", rc);
@@ -825,14 +827,22 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
         std::string manifest = readFile(FW_UPGRADE_MANIFEST);
         nlohmann::json sjs = nlohmann::json::parse(manifest);
         std::string model = sjs["Model"].get<std::string>();
+        std::string platform = sjs["Platform"].get<std::string>();
         std::string stExpiresAt = sjs["ExpiresAt"].get<std::string>();
         uint32_t u32ExpiresEpoch = sjs["ExpiresEpoch"].get<uint32_t>();
 
-        const char *stDefaultModel = rk_param_get_string("system.device_info:model", "UNKNOWN");
+        const char *stPlatform = rk_param_get_string("system.device_info:platform", "EPCB_PLATFORM");
+        const char *stDefaultModel = rk_param_get_string("system.device_info:model", "CMR-OD-003-PROD");
         if (strcmp(stDefaultModel, model.c_str()) != 0) {
             iUpgradeStatus = 422;
             js["success"] = false;
-            js["message"] = "Invalid firmware package for " + std::string(stDefaultModel);
+            js["message"] = "Invalid firmware package for model " + std::string(stDefaultModel);
+            break;
+        }
+        if (strcmp(stPlatform, platform.c_str()) != 0) {
+            iUpgradeStatus = 422;
+            js["success"] = false;
+            js["message"] = "Invalid firmware package for platform " + std::string(stDefaultModel);
             break;
         }
         uint32_t u32Ts = time(NULL);
@@ -884,7 +894,6 @@ static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
     }
     HTTP_ResponseDataAsJSON(message, status, js.dump());
 }
-
 
 static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &js) {
     std::string body = HTTP_ExtractBodyContent(message);
@@ -1068,10 +1077,12 @@ static void APIV1_CGI_GpioLighting(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json _js = nlohmann::json::parse(body);
     {
         int mode = _js["mode"].get<int>();
+		int dimmer = _js["dimmer"].get<int>();
         if (_js.contains("schedule")) {
             auto schedule = _js["schedule"];
             rk_gpio_set_spotlight_schedule((char*)schedule.dump().c_str());
         }
+		rk_gpio_set_spotlight_dimmer(dimmer);
         rk_gpio_set_spotlight_mode(mode);
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());

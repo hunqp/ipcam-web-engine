@@ -175,7 +175,7 @@ int rk_system_get_alarm_outputs_number(char **value);
 int rk_system_get_firmware_version_info(char **value);
 int rk_system_get_manufacturer(char **value);
 int rk_system_get_hardware_id(char **value);
-int rk_system_set_deivce_name(const char *value);
+int rk_system_set_device_name(const char *value);
 int rk_system_set_telecontrol_id(const char *value);
 // action
 int rk_system_reboot();
@@ -325,6 +325,8 @@ int rk_objdet_set_sensitivity_levels(int value);
 int rk_watchdog_ping();
 // gpio
 int rk_gpio_set_spotlight_mode(int mode);
+int rk_gpio_get_spotlight_mode(int *mode);
+int rk_gpio_set_spotlight_dimmer(int value);
 int rk_gpio_set_spotlight_schedule(char *value);
 
 #ifdef __cplusplus

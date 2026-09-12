@@ -462,6 +462,7 @@ static void APIV1_CGI_GpioLighting(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json& data = js["data"];
     {
         data["mode"] = rk_param_get_int("spotlight:mode", 0);
+        data["dimmer"] = rk_param_get_int("spotlight:dimmer", 0);
         const std::string schedule = std::string(rk_param_get_string("spotlight:schedule", ""));
         if (schedule.empty()) {
             data["schedule"] = nlohmann::json::object();
