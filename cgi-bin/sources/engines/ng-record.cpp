@@ -67,15 +67,20 @@ static bool decryptor(FCGX_Request &message, const std::string &filename) {
         int recNum = (rand() % (4321 - 1234 + 1) + 1234);
         snprintf(tmp, sizeof(tmp), RECORDS_DECRYPT_DIR "/.%d.mp4", (++randomId) + recNum);
 
-        mkdir(RECORDS_DECRYPT_DIR, 0755);
+        mkdir(RECORDS_DECRYPT_DIR, 0700);
         int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename.c_str(), tmp);
         if (rc != 0) {
             /**
-             * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename. 
+             * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename.
              * Otherwise, return false to let lighttpd serve directly records in '/mnt/sdcard'
              */
             return false;
         }
+        /* This plaintext copy stays on disk for reuse across the Range
+         * sub-requests one playback/seek session makes (see the alias cache
+         * above); lock it to this process's own user so no other local
+         * process/user can read decrypted footage out of RECORDS_DECRYPT_DIR. */
+        chmod(tmp, S_IRUSR | S_IWUSR);
         addAlias(tmp, filename);
     } else {
         /* If exist, we can use `alias` as filename and reuse this */

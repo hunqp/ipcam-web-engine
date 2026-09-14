@@ -25,8 +25,13 @@ static inline void prepare() {
     Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, APP_SECRET_UNIQUE_FILE);
 
     /* Derive this process' JWT signing secret (see authorise.cpp). Must run
-     * before InitStreamer(), whose WebSocket auth hook validates tokens too. */
-    jwt_authorise_setup();
+     * before InitStreamer(), whose WebSocket auth hook validates tokens too.
+     * On failure, authorise.cpp fails closed on its own (no token is ever
+     * issued or accepted); this is just so the fault is visible in the log. */
+    if (!jwt_authorise_setup()) {
+        CGI_SYSE("prepare: jwt_authorise_setup() failed; login and WebSocket "
+                 "streaming will be unavailable until the device key is restored\r\n");
+    }
 
     /* Auto generate password default for the first time */
     if (access(APP_ACCOUNTS_DB_FILE, F_OK) != 0) {

@@ -171,22 +171,28 @@ static void APIV1_CGI_UserLogin(FCGX_Request &message, nlohmann::json &js) {
         HTTP_DecodeSubmitForm(username, username);
         HTTP_DecodeSubmitForm(password, password);
         if (validateCredentials(username, password, (int*)&role)) {
-            status = 200;
             extraHeader = HTTP_GenerateCookies(username, (int)role);
+            /* An empty header means jwt_authorise_generate_token() refused to
+             * issue a token (no valid device secret) - a server-side fault,
+             * not a bad credential, so it must not count as a failed attempt. */
+            status = extraHeader.empty() ? 500 : 200;
         }
     }
-    
+
     if (status == 200) {
         js["data"]["role"] = role;
         js["data"]["redirect"] = WWW_REDIRECT_PREVIEW;
         js["data"]["username"] = std::string(username);
         js["data"]["permissions"] = reloadComponents(APP_DASHBOARD_CONFIGURE_FILE, role);
         attempts->reset(false);
+    } else if (status == 500) {
+        js["success"] = false;
+        js["message"] = "Server is temporarily unable to establish a secure session. Please contact your administrator.";
     } else {
         attempts->onFailedAttempts(u32Ts);
         js["success"] = false;
-        js["message"] = "Invalid username or password! You still have " 
-            + std::to_string(attempts->U16_MAX_LOGIN_ATTEMPTS - attempts->u16FailedAttempts) 
+        js["message"] = "Invalid username or password! You still have "
+            + std::to_string(attempts->U16_MAX_LOGIN_ATTEMPTS - attempts->u16FailedAttempts)
             + " attempt(s).";
     }
     HTTP_ResponseDataAsJSON(message, status, js.dump(), extraHeader);
@@ -728,7 +734,7 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
     }
 
     FILE *firmware = fopen(FW_UPGRADE_PACKAGED, start == 0 ? "wb" : "ab");
-    bool success = firmware != NULL;
+    bool success = (firmware != NULL) ? true : false;;
     size_t receivedSize = 0;
     char buffer[64 * 1024] = {0};
     while (success && remaining > 0) {
@@ -1066,12 +1072,14 @@ static void APIV1_CGI_GpioLighting(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json _js = nlohmann::json::parse(body);
     {
         int mode = _js["mode"].get<int>();
-		int dimmer = _js["dimmer"].get<int>();
+        if (_js.contains("dimmer")) {
+            auto value = _js["dimmer"].get<int>();
+            rk_gpio_set_spotlight_dimmer(value);
+        }
         if (_js.contains("schedule")) {
             auto schedule = _js["schedule"];
             rk_gpio_set_spotlight_schedule((char*)schedule.dump().c_str());
         }
-		rk_gpio_set_spotlight_dimmer(dimmer);
         rk_gpio_set_spotlight_mode(mode);
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());

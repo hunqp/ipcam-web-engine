@@ -239,6 +239,11 @@ bool HTTP_IsAuthenticated(FCGX_Request& message, int *role) {
 std::string HTTP_GenerateCookies(const std::string& username, int role) {
     std::string jwt = jwt_authorise_generate_token(username, role,
                                                    jwt_authorise_get_credentials(username));
+    if (jwt.empty()) {
+        /* No signing secret available (see jwt_authorise_setup()): refuse to
+         * hand out a session rather than set an unusable empty-valued cookie. */
+        return "";
+    }
     std::string cookie = std::string("Set-Cookie: ") + JWT_AUTHORISE_SESSION + "=" +
                          jwt +
                          "; Path=/; Max-Age=" + std::to_string(JWT_AUTHORISE_EXPIRED_SECONDS) +

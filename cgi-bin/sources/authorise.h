@@ -4,7 +4,7 @@
 #include <string>
 
 #define JWT_AUTHORISE_SESSION               (char*)"vivoo-session"
-/* Short lifetime. Logout revokes the token immediately via an in-RAM denylist
+/* Short lifetime. Logout revokes the token immediately via a denylist
  * (jwt_authorise_reclaim_token); a credential/role change is caught on the next
  * request by the account re-bind in jwt_authorise_check(). This bound only caps
  * a token whose revocation was lost to a process restart, or one leaked and
@@ -14,7 +14,13 @@
 /*
     @JWT Token Generator
 */
-extern void jwt_authorise_setup(void);
+/* Derives the HS256 signing secret from the device's private key. Returns
+ * false if the key file could not be read or parsed as a valid private key;
+ * callers MUST treat false as fatal to authentication - jwt_authorise_check()
+ * and jwt_authorise_generate_token() fail closed (reject / return "") for as
+ * long as the secret stays unset, rather than falling back to a substitute
+ * secret. */
+extern bool jwt_authorise_setup(void);
 extern bool jwt_authorise_validate_token(const std::string& token);
 extern std::string jwt_authorise_get_credentials(const std::string& username);
 extern std::string jwt_authorise_generate_token(const std::string& username, int role, const std::string& credTag);
@@ -25,11 +31,12 @@ extern std::string jwt_authorise_generate_token(const std::string& username, int
  * *role is the CURRENT role read from the accounts DB, never the "role" claim. */
 extern bool jwt_authorise_check(const std::string& token, int* role);
 
-/* Add a token to the in-RAM (never persisted) logout denylist so every later
- * jwt_authorise_check() of it fails. Safe to call with "" or an invalid token
- * (no-op). The entry is dropped automatically once the token would expire; the
- * whole denylist is lost on process restart, after which a logged-out token
- * relies on its <= JWT_AUTHORISE_EXPIRED_SECONDS expiry. */
+/* Add a token to the logout denylist (mirrored to tmpfs so it survives a
+ * FastCGI process restart) so every later jwt_authorise_check() of it fails.
+ * Safe to call with "" or an invalid token (no-op). The entry is dropped
+ * automatically once the token would expire; the whole denylist is lost only
+ * on a full device reboot, after which a logged-out token relies on its
+ * <= JWT_AUTHORISE_EXPIRED_SECONDS expiry. */
 extern void jwt_authorise_reclaim_token(const std::string& token);
 
 #endif /* AUTHORISE_H */
