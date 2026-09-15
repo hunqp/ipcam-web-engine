@@ -18,12 +18,15 @@ std::string readFile(const std::string& filename) {
 }
 
 bool wrteFile(const std::string& filename, const std::string& content) {
-    std::ofstream file(filename.c_str());
-    if (!file.is_open()) {
+    FILE *fp = fopen(filename.c_str(), "w");
+    if (!fp) {
         return false;
     }
-    file << content;
-	system("sync");
+    fwrite(content.data(), 1, content.size(), fp);
+    fflush(fp);
+    fsync(fileno(fp));
+    fclose(fp);
+
     return true;
 }
 

@@ -956,13 +956,8 @@ static void APIV1_CGI_SystemUsersAdd(FCGX_Request &message, nlohmann::json &js) 
      * Make this api '/api/v1/system/users/add' become authories
      * after first registry account
      */
-    for (int id = 0; POST_HashMap[id].api != NULL; ++id) {
-        HashTableEntrance* selected = &POST_HashMap[id];
-        if (strcmp(selected->api, (const char*)"/api/v1/system/users/add") == 0) {
-            selected->needToAuthenticate = true;
-            break;
-        }
-    }
+    extern bool *REGISTRY_REQUIRED_AUTHEN;
+	*REGISTRY_REQUIRED_AUTHEN = true;
 	HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 

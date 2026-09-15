@@ -30,29 +30,13 @@ static void APIV1_CGI_RedirectPreviewPage(FCGX_Request &message, nlohmann::json 
     }
 }
 
-static void APIV1_CGI_RedirectActivatePage(FCGX_Request &message, nlohmann::json &js) {
-	/**
-	 * Enable first register when no database accounts 
-	 * This often occurs after reset factory or first time on-board devices.
-	 */
-	bool activate = false;
-
-	if ((access(APP_ACCOUNTS_DB_FILE, F_OK) != 0)) {
-		activate = true;
-		
-		/**
-		 * Make this api '/api/v1/system/users/add' become unauthories
-		 * for the first time registry
-		 */
-		for (int id = 0; POST_HashMap[id].api != NULL; ++id) {
-			HashTableEntrance* selected = &POST_HashMap[id];
-			if (strcmp(selected->api, (const char*)"/api/v1/system/users/add") == 0) {
-				selected->needToAuthenticate = false;
-				break;
-			}
-		}
-	}
-	js["data"]["activate"] = activate;
+static void APIV1_CGI_GetActivateStatus(FCGX_Request &message, nlohmann::json &js) {
+    extern bool *REGISTRY_REQUIRED_AUTHEN;
+    /**
+     * If REGISTRY_REQUIRED_AUTHEN = TRUE mean activate MUST be TRUE 
+     * for first time registry on web UI
+     */
+	js["data"]["activate"] = (*REGISTRY_REQUIRED_AUTHEN) ? false : true;
 	HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
 
@@ -623,7 +607,7 @@ HashTableEntrance GET_HashMap[] = {
     */
     {(char *)"/login"                       , false ,   Customer    , APIV1_CGI_RedirectLoginPage       },
     {(char *)"/preview"                     , false ,   Customer    , APIV1_CGI_RedirectPreviewPage     },
-	{(char *)"/activate"                    , false ,   Customer    , APIV1_CGI_RedirectActivatePage    },
+	{(char *)"/activate"                    , false ,   Customer    , APIV1_CGI_GetActivateStatus       },
     /*
         @Media
     */

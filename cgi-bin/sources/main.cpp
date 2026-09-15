@@ -8,6 +8,7 @@
 
 std::string WWW_ROOT;
 bool IS_MACHINE_UPGRADING = false;
+bool *REGISTRY_REQUIRED_AUTHEN = NULL;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string stGetEnvirVariables(FCGX_Request& request, const char* name) {
@@ -31,6 +32,25 @@ static inline void prepare() {
     if (!jwt_authorise_setup()) {
         CGI_SYSE("prepare: jwt_authorise_setup() failed; login and WebSocket "
                  "streaming will be unavailable until the device key is restored\r\n");
+    }
+
+    /**
+     * Make this api '/api/v1/system/users/add' become authories/unauthories
+     * depending on database accounts.
+     * It's unauthories when no database accounts (First on-boarding device, reset factory, ...)
+     * Otherwise, it's authories for API adding user.
+     */
+    for (int id = 0; POST_HashMap[id].api != NULL; ++id) {
+        HashTableEntrance* selected = &POST_HashMap[id];
+        if (strcmp(selected->api, (const char*)"/api/v1/system/users/add") == 0) {
+            REGISTRY_REQUIRED_AUTHEN = &selected->needToAuthenticate;
+            break;
+        }
+    }
+    if (access(APP_ACCOUNTS_DB_FILE, F_OK) != 0) {
+        *REGISTRY_REQUIRED_AUTHEN = false;
+    } else {
+        /* Default is authories */
     }
 }
 
