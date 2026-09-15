@@ -477,40 +477,42 @@ int Kiwi_Credentials_Get(KIWI_CREDENTIALS_T *list, int size) {
 }
 
 /**
- * @brief Generate a deterministic 8-character password from the supplied salt.
- *
- * The function calculates SHA-256(salt), converts the first four digest bytes
- * to lowercase hexadecimal, and writes the resulting 8 characters plus a NUL
- * terminator to `password`.
- *
- * @param[in]  salt     NUL-terminated input string used as SHA-256 input.
- * @param[out] password Output buffer receiving 8 hexadecimal characters and NUL.
- * @param[in]  size     Size of `password` in bytes; must be at least 9.
- * @return 0 on success, -1 for invalid arguments, or -2 on SHA-256 failure.
- *
- * @warning An 8-hex-character output contains only 32 bits of the SHA-256 digest.
- *          Do not treat a public/predictable salt such as a MAC address or serial
- *          number as a secret password source.
+ * @brief Generate a deterministic 8-character password bound to the device private
+ *        key, domain-separated by `purpose`. See kiwi_credentials.h.
  */
-int Kiwi_Credentials_GeneratePassword(char *salt, char *password, int size) {
-    /*
-     * Eight hexadecimal characters plus the terminating NUL byte are required.
-     * SHA-256 itself produces 32 bytes, but this API intentionally exposes only
-     * the first 4 bytes as 8 lowercase hexadecimal characters.
-     */
-    if (!salt || !password || salt[0] == '\0' || size < 9) {
+int Kiwi_Credentials_GeneratePassword(const char *storageKeyFilename, const char *purpose, char *password, int size) {
+    if (!storageKeyFilename || !purpose || !purpose[0] || !password || size < 9) {
         return -1;
     }
+
+    uint8_t *keyContent = NULL;
+    int keyContentLen = 0;
+    if (PR_ExtractPrivateKeyContent(storageKeyFilename, &keyContent, &keyContentLen) != 0) {
+        return -2;
+    }
+
+    unsigned int prkLen = 0;
+    uint8_t prk[EVP_MAX_MD_SIZE] = {0};
+    HMAC(EVP_sha256(), (const uint8_t *)purpose, strlen(purpose), keyContent, keyContentLen, prk, &prkLen);
+
+    static const uint8_t INFO[] = "KIWI_CREDENTIALS_DERIVE_PASSWORD_V1";
+    uint8_t info[sizeof(INFO)];
+    memcpy(info, INFO, sizeof(INFO) - 1);
+    info[sizeof(INFO) - 1] = 0x01; /* HKDF-Expand block counter */
+
+    unsigned int digestLen = 0;
+    uint8_t digest[EVP_MAX_MD_SIZE] = {0};
+    HMAC(EVP_sha256(), prk, prkLen, info, sizeof(info), digest, &digestLen);
+
+    OPENSSL_cleanse(prk, sizeof(prk));
+    OPENSSL_cleanse(keyContent, keyContentLen);
+    OPENSSL_free(keyContent);
 
     static const char upper[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     static const char lower[] = "abcdefghijklmnopqrstuvwxyz";
     static const char digit[] = "0123456789";
     static const char all[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-    unsigned int digestLen = 0;
-    uint8_t digest[EVP_MAX_MD_SIZE] = {0};
-
-    EVP_Digest(salt, strlen(salt), digest, &digestLen, EVP_sha256(), NULL);
     password[0] = upper[digest[0] % (sizeof(upper) - 1)];
     password[1] = lower[digest[1] % (sizeof(lower) - 1)];
     password[2] = digit[digest[2] % (sizeof(digit) - 1)];

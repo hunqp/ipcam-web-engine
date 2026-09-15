@@ -32,28 +32,6 @@ static inline void prepare() {
         CGI_SYSE("prepare: jwt_authorise_setup() failed; login and WebSocket "
                  "streaming will be unavailable until the device key is restored\r\n");
     }
-
-    /* Auto generate password default for the first time */
-    if (access(APP_ACCOUNTS_DB_FILE, F_OK) != 0) {
-        KIWI_CREDENTIALS_T defaultCredentials = {0};
-        const char defaultUsername[] = "admin";
-        char defaultPassword[9] = {0};
-
-        /**
-         * Generate salt by MAC address with ffde prefix, 
-         * then generate password by SHA-256(salt)
-         */
-        char salt[32] = {0};
-        uint8_t MAC[6] = {0};
-        Kiwi_MAC_GetAddress("eth0", MAC, NULL);
-        snprintf(salt, sizeof(salt), "%02x%02x%02x%02x%02x%02xffde", MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
-        Kiwi_Credentials_GeneratePassword(salt, defaultPassword, sizeof(defaultPassword));
-        CGI_SYSD("%s:%s\r\n", defaultUsername, defaultPassword);
-        strcpy(defaultCredentials.username, defaultUsername);
-        strcpy(defaultCredentials.password, defaultPassword);
-        defaultCredentials.role = 0; /* Administrator */
-        Kiwi_Credentials_Add(&defaultCredentials);
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
