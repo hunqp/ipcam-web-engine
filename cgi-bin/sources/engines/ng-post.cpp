@@ -850,7 +850,7 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
 		if (strcmp(stPlatform, platform.c_str()) != 0) {
 			iUpgradeStatus = 422;
 			js["success"] = false;
-			js["message"] = "Invalid firmware package for platform " + std::string(stDefaultModel);
+			js["message"] = "Invalid firmware package for platform " + std::string(stPlatform);
 			break;
 		}
 		uint32_t u32Ts = time(NULL);
@@ -928,7 +928,28 @@ static void APIV1_CGI_SystemUsersAdd(FCGX_Request &message, nlohmann::json &js) 
 		std::string password = _js["password"].get<std::string>();
 
 		/**
-		 * Invalid password, the password MUST be contained at least 8 characters, 
+		 * Invalid account role created
+		 * Only accepted in range [0:2]
+		 */
+		if (role < Administrator || role > Customer) {
+			js["success"] = false;
+			js["message"] = "Invalid account role.";
+			HTTP_ResponseDataAsJSON(message, 422, js.dump());
+			return;
+		}
+
+		/**
+		 * Password is too long, it's MUST be less than 31 characters
+		 */
+		if (password.length() > 31) {
+			js["success"] = false;
+			js["message"] = "Password is too long, it's MUST be less than 31 characters.";
+			HTTP_ResponseDataAsJSON(message, 422, js.dump());
+			return;
+		}
+
+		/**
+		 * Password not strong enough, the password MUST be contained at least 8 characters, 
 		 * at least 1 uppercase letter, at least 1 lowercase letter, at least 1 digit, 
 		 * at least 1 special character
 		 */
@@ -970,6 +991,27 @@ static void APIV1_CGI_SystemUsersUpdate(FCGX_Request &message, nlohmann::json &j
 		std::string username = _js["username"].get<std::string>();
 		std::string password = _js["password"].get<std::string>();
 
+		/**
+		 * Invalid account role created
+		 * Only accepted in range [0:2]
+		 */
+		if (role < Administrator || role > Customer) {
+			js["success"] = false;
+			js["message"] = "Invalid account role";
+			HTTP_ResponseDataAsJSON(message, 422, js.dump());
+			return;
+		}
+
+		/**
+		 * Password is too long, it's MUST be less than 31 characters
+		 */
+		if (password.length() > 31) {
+			js["success"] = false;
+			js["message"] = "Password is too long, it's MUST be less than 31 characters.";
+			HTTP_ResponseDataAsJSON(message, 422, js.dump());
+			return;
+		}
+		
 		/**
 		 * Invalid password, the password MUST be contained at least 8 characters, 
 		 * at least 1 uppercase letter, at least 1 lowercase letter, at least 1 digit, 

@@ -369,8 +369,8 @@ static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
             data = nlohmann::json::parse(content);
         }
         else {
-            /* Assign peasudo values */
-            data["utc_offset"] = std::string("UTC-07:00");
+            /* Assign pseudo values */
+            data["utc_offset"] = std::string("UTC+07:00");
             data["timezone"] = std::string("Asia/Ho_Chi_Minh");
             data["ntp"]["enabled"] = false;
             data["ntp"]["servers"].push_back(std::string("0.pool.ntp.org"));
