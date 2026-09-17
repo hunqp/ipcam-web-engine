@@ -23,7 +23,7 @@ static inline void prepare() {
     rk_param_init((char*)APP_IPC_CONFIGURE_FILE);
 
     /* Initialise secret by serial number of device */
-    Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, APP_SECRET_UNIQUE_FILE);
+    Kiwi_Credentials_Setup(APP_ACCOUNTS_DB_FILE, APP_PRIVATE_KEY_FILE);
 
     /* Derive this process' JWT signing secret (see authorise.cpp). Must run
      * before InitStreamer(), whose WebSocket auth hook validates tokens too.

@@ -153,6 +153,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
     /*
         @smart_ir
     */
+    data["smart_ir"]["ir_dimmer"] = rk_param_get_int("isp.1.night_to_day:light_brightness", 50);
     data["smart_ir"]["switch_context"] = rk_param_get_int("isp:auto_day_night", -1);
     /*
         @osd

@@ -154,7 +154,7 @@ static void jwt_derive_secret_key(const uint8_t* secret, int secretLen, uint8_t 
 
 bool jwt_authorise_setup(void) {
     /* Derive the HS256 signing secret from the device-unique TLS private key
-     * (APP_SECRET_UNIQUE_FILE, the same file Kiwi_Credentials feeds into
+     * (APP_PRIVATE_KEY_FILE, the same file Kiwi_Credentials feeds into
      * HKDF, via its own domain-separated derivation). Advantages over a
      * per-process random secret:
      *   - stable across restarts, so a FastCGI crash no longer silently
@@ -166,9 +166,9 @@ bool jwt_authorise_setup(void) {
 
     uint8_t* der = NULL;
     int derLen = 0;
-    if (jwt_extract_private_key_der(APP_SECRET_UNIQUE_FILE, &der, &derLen) != 0) {
+    if (jwt_extract_private_key_der(APP_PRIVATE_KEY_FILE, &der, &derLen) != 0) {
         CGI_SYSE("jwt_authorise_setup: cannot read/parse device private key '%s'; "
-                 "refusing to issue or accept session tokens\r\n", APP_SECRET_UNIQUE_FILE);
+                 "refusing to issue or accept session tokens\r\n", APP_PRIVATE_KEY_FILE);
         return false;
     }
 

@@ -642,10 +642,12 @@ static void APIV1_CGI_SystemReset(FCGX_Request &message, nlohmann::json &js) {
 		unlink(APP_IPC_CONFIGURE_FILE);
 		unlink(APP_WIRE_CONFIGURE_FILE);
 		unlink(APP_WIFI_CONFIGURE_FILE);
+		unlink(APP_PRIVATE_KEY_FILE);
+		unlink(APP_CERTIFICATE_FILE);
 		unlink(APP_REGISTERED_STATUS_FILE);
 		runCommands("rm -f %s/*", APP_INTEGRATION_DIR);
 		runFormatExitDisks();
-		sleep(3);
+		sleep(3); /* Wait a few seconds for formatting Ext-Disk */
 		system("reboot");
 	});
 	js["message"] = "Success. Device will be rebooted after 3 second.";

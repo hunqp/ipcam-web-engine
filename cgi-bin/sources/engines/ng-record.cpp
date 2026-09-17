@@ -68,7 +68,7 @@ static bool decryptor(FCGX_Request &message, const std::string &filename) {
         snprintf(tmp, sizeof(tmp), RECORDS_DECRYPT_DIR "/.%d.mp4", (++randomId) + recNum);
 
         mkdir(RECORDS_DECRYPT_DIR, 0700);
-        int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_SECRET_UNIQUE_FILE, filename.c_str(), tmp);
+        int rc = runCommands("%s \"%s\" \"%s\" \"%s\"", RECORDS_DECRYPT_TOOL, APP_PRIVATE_KEY_FILE, filename.c_str(), tmp);
         if (rc != 0) {
             /**
              * Return 0 mean SUCCESS decryptiton, so we can use `tmp` as filename.
