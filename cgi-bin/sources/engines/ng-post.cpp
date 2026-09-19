@@ -834,35 +834,62 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
 		/**
 		 * Validate firmware manifest
 		 */
-		std::string manifest = readFile(FW_UPGRADE_MANIFEST);
-		nlohmann::json sjs = nlohmann::json::parse(manifest);
-		std::string model = sjs["Model"].get<std::string>();
-		std::string platform = sjs["Platform"].get<std::string>();
-		std::string stExpiresAt = sjs["ExpiresAt"].get<std::string>();
-		uint32_t u32ExpiresEpoch = sjs["ExpiresEpoch"].get<uint32_t>();
+		typedef struct {
+            std::string model;
+            std::string platform;
+			std::string stExpiresAt;
+            uint32_t u32SecurVersion;
+            uint32_t u32ExpiresEpoch;
+        } PackageUpgradeInfor_t;
 
-		const char *stPlatform = rk_param_get_string("system.device_info:platform", "EPCB_PLATFORM");
-		const char *stDefaultModel = rk_param_get_string("system.device_info:model", "CMR-OD-003-PROD");
-		if (strcmp(stDefaultModel, model.c_str()) != 0) {
+		PackageUpgradeInfor_t manifest {};
+        PackageUpgradeInfor_t currents {};
+
+		/* Get information of manifest firmware version */
+		{
+			std::string str = readFile(FW_UPGRADE_MANIFEST);
+			nlohmann::json sjs = nlohmann::json::parse(str);
+			assignJSValue(sjs, "Model", manifest.model);
+			assignJSValue(sjs, "Platform", manifest.platform);
+			assignJSValue(sjs, "ExpiresAt", manifest.stExpiresAt);
+			assignJSValue(sjs, "ExpiresEpoch", manifest.u32ExpiresEpoch);
+			assignJSValue(sjs, "SecurityVersion", manifest.u32SecurVersion);
+		}
+
+		/* Get information of manifest firmware version */
+		{
+			std::string str = readFile(APP_VERSION_FILE);
+			nlohmann::json sjs = nlohmann::json::parse(str);
+			assignJSValue(sjs, "Title", currents.model);
+			assignJSValue(sjs, "Platform", currents.platform);
+			assignJSValue(sjs, "SecurityVersion", currents.u32SecurVersion);
+		}
+
+		if (manifest.model != currents.model) {
 			iUpgradeStatus = 422;
 			js["success"] = false;
-			js["message"] = "Invalid firmware package for model " + std::string(stDefaultModel);
+			js["message"] = "Invalid firmware package for model " + currents.model + "current is " + manifest.model;
 			break;
 		}
-		if (strcmp(stPlatform, platform.c_str()) != 0) {
+		if (manifest.platform != currents.platform) {
 			iUpgradeStatus = 422;
 			js["success"] = false;
-			js["message"] = "Invalid firmware package for platform " + std::string(stPlatform);
+			js["message"] = "Invalid firmware package for platform " + currents.platform + "current is " + manifest.platform;
 			break;
 		}
 		uint32_t u32Ts = time(NULL);
-		if (u32Ts > u32ExpiresEpoch) {
+		if (u32Ts > manifest.u32ExpiresEpoch) {
 			iUpgradeStatus = 422;
 			js["success"] = false;
-			js["message"] = "Firmware package has expired at " + stExpiresAt;
+			js["message"] = "Firmware package has expired at " + manifest.stExpiresAt;
 			break;
 		}
-
+		if (manifest.u32SecurVersion < currents.u32SecurVersion) {
+			iUpgradeStatus = 422;
+			js["success"] = false;
+			js["message"] = "Firmware package can't be downgraded";
+			break;
+		}
 		error = 0;
 		js["success"] = true;
 		js["message"] = "Download complete. Firmware upgrade has started, wait a few minutes";
