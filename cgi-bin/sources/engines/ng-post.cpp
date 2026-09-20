@@ -75,15 +75,15 @@ static bool isStrongPassword(const std::string &password) {
 	}
 
 	bool hasUpper = false, hasLower = false;
-	bool hasDigit = false, hasSpecial = true /* Ignore this case */;
+	bool hasDigit = false, hasSpecial = false;
 
 	for (uint8_t id = 0; id < password.length(); ++id) {
 		if (isupper(password[id])) hasUpper = true;
 		else if (islower(password[id])) hasLower = true;
 		else if (isdigit(password[id])) hasDigit = true;
-		// else if (strchr("!@#$%^&*()_+-=[]{}|;:,.<>?", password[id])) {
-		//     hasSpecial = true;
-		// }
+		else if (strchr("!@#$%^&*()_+-=[]{}|;:,.<>?", password[id])) {
+		    hasSpecial = true;
+		}
 	}
 	/* If any required category is missing, consider it weak */
 	if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
@@ -984,7 +984,7 @@ static void APIV1_CGI_SystemUsersAdd(FCGX_Request &message, nlohmann::json &js) 
 		 */
 		if (!isStrongPassword(password)) {
 			js["success"] = false;
-			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit.";
+			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit and special characters.";
 			HTTP_ResponseDataAsJSON(message, 422, js.dump());
 			return;
 		}
@@ -1048,7 +1048,7 @@ static void APIV1_CGI_SystemUsersUpdate(FCGX_Request &message, nlohmann::json &j
 		 */
 		if (!isStrongPassword(password)) {
 			js["success"] = false;
-			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit.";
+			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit and special characters.";
 			HTTP_ResponseDataAsJSON(message, 422, js.dump());
 			return;
 		}
