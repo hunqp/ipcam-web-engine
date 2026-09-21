@@ -68,7 +68,7 @@ static nlohmann::json reloadComponents(const char *filename, int role) {
 	return js;
 }
 
-static bool isStrongPassword(const std::string &password) {
+static inline bool isStrongPassword(const std::string &password) {
 	/* Minimum length check (e.g., 8 characters) */
 	if (password.length() < 8) {
 		return false;
@@ -90,6 +90,37 @@ static bool isStrongPassword(const std::string &password) {
 		return false;
 	}
 	return true;
+}
+
+static const char* isGoodAccounts(const char *username, const char *password, int role) {
+	/**
+	 * Invalid account role created
+	 * Only accepted in range [0:2]
+	 */
+	if (role < Administrator || role > Customer) {
+		return (const char*)"Invalid account role.";
+	}
+	/**
+	 * Password is too long, it's MUST be less than 31 characters
+	 */
+	if (strlen(password) > 31) {
+		return (const char*)"Password is too long, it's MUST be less than 31 characters.";
+	}
+	/**
+	 * Username is too long, it's MUST be less than 31 characters
+	 */
+	if (strlen(username) > 31) {
+		return (const char*)"Username is too long, it's MUST be less than 31 characters.";
+	}
+	/**
+	 * Password not strong enough, the password MUST be contained at least 8 characters, 
+	 * at least 1 uppercase letter, at least 1 lowercase letter, at least 1 digit, 
+	 * at least 1 special character
+	 */
+	if (!isStrongPassword(password)) {
+		return (const char*)"Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit and special characters.";
+	}
+	return NULL;
 }
 
 static bool validateCredentials(const std::string &username, const std::string &password, int *usrLevels) {
@@ -956,35 +987,11 @@ static void APIV1_CGI_SystemUsersAdd(FCGX_Request &message, nlohmann::json &js) 
 		std::string username = _js["username"].get<std::string>();
 		std::string password = _js["password"].get<std::string>();
 
-		/**
-		 * Invalid account role created
-		 * Only accepted in range [0:2]
-		 */
-		if (role < Administrator || role > Customer) {
+		/* Validate accounts before saving in database */
+		const char *stErrors = isGoodAccounts(username.c_str(), password.c_str(), role);
+		if (stErrors) {
 			js["success"] = false;
-			js["message"] = "Invalid account role.";
-			HTTP_ResponseDataAsJSON(message, 422, js.dump());
-			return;
-		}
-
-		/**
-		 * Password is too long, it's MUST be less than 31 characters
-		 */
-		if (password.length() > 31) {
-			js["success"] = false;
-			js["message"] = "Password is too long, it's MUST be less than 31 characters.";
-			HTTP_ResponseDataAsJSON(message, 422, js.dump());
-			return;
-		}
-
-		/**
-		 * Password not strong enough, the password MUST be contained at least 8 characters, 
-		 * at least 1 uppercase letter, at least 1 lowercase letter, at least 1 digit, 
-		 * at least 1 special character
-		 */
-		if (!isStrongPassword(password)) {
-			js["success"] = false;
-			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit and special characters.";
+			js["message"] = std::string(stErrors);
 			HTTP_ResponseDataAsJSON(message, 422, js.dump());
 			return;
 		}
@@ -1020,35 +1027,11 @@ static void APIV1_CGI_SystemUsersUpdate(FCGX_Request &message, nlohmann::json &j
 		std::string username = _js["username"].get<std::string>();
 		std::string password = _js["password"].get<std::string>();
 
-		/**
-		 * Invalid account role created
-		 * Only accepted in range [0:2]
-		 */
-		if (role < Administrator || role > Customer) {
+		/* Validate accounts before saving in database */
+		const char *stErrors = isGoodAccounts(username.c_str(), password.c_str(), role);
+		if (stErrors) {
 			js["success"] = false;
-			js["message"] = "Invalid account role";
-			HTTP_ResponseDataAsJSON(message, 422, js.dump());
-			return;
-		}
-
-		/**
-		 * Password is too long, it's MUST be less than 31 characters
-		 */
-		if (password.length() > 31) {
-			js["success"] = false;
-			js["message"] = "Password is too long, it's MUST be less than 31 characters.";
-			HTTP_ResponseDataAsJSON(message, 422, js.dump());
-			return;
-		}
-		
-		/**
-		 * Invalid password, the password MUST be contained at least 8 characters, 
-		 * at least 1 uppercase letter, at least 1 lowercase letter, at least 1 digit, 
-		 * at least 1 special character
-		 */
-		if (!isStrongPassword(password)) {
-			js["success"] = false;
-			js["message"] = "Password is not strong enough. It must contain at least 8 characters, including uppercase, lowercase, digit and special characters.";
+			js["message"] = std::string(stErrors);
 			HTTP_ResponseDataAsJSON(message, 422, js.dump());
 			return;
 		}

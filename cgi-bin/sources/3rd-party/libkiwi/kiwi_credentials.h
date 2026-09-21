@@ -62,23 +62,6 @@ extern int Kiwi_Credentials_Del(KIWI_CREDENTIALS_T *credentials);
  */
 extern int Kiwi_Credentials_Get(KIWI_CREDENTIALS_T *list, int size);
 
-/**
- * @brief Generate a deterministic 8-character password bound to the device private
- *        key, domain-separated by `purpose` so different callers never derive the
- *        same secret from the same key file. The output does not depend on any
- *        publicly observable value (MAC address, serial number): recovering it
- *        requires the device's private key file.
- * @param[in]  storageKeyFilename Path to a PEM-encoded private key file (e.g. the
- *             device's TLS server key).
- * @param[in]  purpose  NUL-terminated domain-separation label unique to the caller
- *             (e.g. "IPCAM_DEFAULT_ADMIN_PASSWORD_V1").
- * @param[out] password Output buffer receiving 8 characters and NUL.
- * @param[in]  size     Size of `password` in bytes; must be at least 9.
- * @return 0 on success, -1 for invalid arguments, or -2 if the key file could not be
- *         read/parsed.
- */
-extern int Kiwi_Credentials_GeneratePassword(const char *storageKeyFilename, const char *purpose, char *password, int size);
-
 #ifdef __cplusplus
 }
 #endif
