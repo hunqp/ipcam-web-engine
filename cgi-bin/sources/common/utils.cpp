@@ -4,6 +4,9 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 
+#include <sys/un.h>
+#include <sys/socket.h>
+
 #include "utils.h"
 #include "driver/param/rk_param.h"
 
@@ -96,19 +99,22 @@ int setMachineTimezone(const std::string timezone) {
 }
 
 int runFormatExitDisks(void) {
-    int rc = -1;
-    char hdd[32] = {0};
-    char mountpoint[32] = {0};
-
-    FILE *fp = fopen("/proc/mounts", "r");
-    if (fp) {
-        while (fscanf(fp, "%31s %31s %*s %*s %*d %*d", hdd, mountpoint) == 2) {
-            if (strcmp(mountpoint, (const char*)"/mnt/sdcard") == 0) {
-                rc = runCommands("killall -9 p2p_client && umount -l %s && mkfs.vfat %s > /dev/null 2>&1", mountpoint, hdd);
-                break;
-            }
-        }
-        fclose(fp);
+    /**
+     * Because P2P is storage in SD, so we can't format SD in this process.
+     * So we send a invoke message to P2P to format SD.
+     */
+    int fd = -1;
+    const char *filename = (const char*)"/tmp/p2p.sock";
+    const char *messages = (const char*)"{\"method\":\"SD_FORMAT\",\"params\":{}}";
+    
+    fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return -1;
     }
-    return rc;
+    sockaddr_un addr = {0};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, filename, sizeof(addr.sun_path) - 1);
+    ssize_t written = sendto( fd, messages, strlen(messages), 0, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
+    close(fd);
+    return (written == strlen(messages)) ? 0 : -2;
 }
