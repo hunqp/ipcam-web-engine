@@ -97,7 +97,6 @@ int setMachineTimezone(const std::string timezone) {
     }
     return rc;
 }
-
 int runFormatExitDisks(void) {
     /**
      * Because P2P is storage in SD, so we can't format SD in this process.

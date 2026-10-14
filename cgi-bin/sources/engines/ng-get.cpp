@@ -520,7 +520,7 @@ static void APIV1_CGI_EventDetection(FCGX_Request &message, nlohmann::json &js) 
     {
         data["enabled"] = rk_param_get_int("video.source:enable_object_detect", 1) ? true : false;
         data["object_detection"]["type"] = rk_param_get_int("video.source:object_detect_filter", 1);
-        data["object_detection"]["bouding_box"] = rk_param_get_int("video.source:enable_object_shape", 0);
+        data["object_detection"]["bounding_box"] = rk_param_get_int("video.source:enable_object_shape", 0) ? true : false;
         data["object_detection"]["sensitivity_level"] = rk_param_get_int("ivs:md_sensibility", 2);
         data["region_of_interest"]["rule"] = rk_param_get_int("roi.3:id", 0);
         data["region_of_interest"]["shape"] = rk_param_get_string("roi.3:name", "polygon");
