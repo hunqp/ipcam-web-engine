@@ -393,9 +393,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 	std::string body = HTTP_ExtractBodyContent(message);
 	nlohmann::json _js = nlohmann::json::parse(body);
 	{
-		/*
-			@isp
-		*/
+		/* ISP */
 		if (_js.contains("isp")) {
 			int hue = _js["isp"]["hue"].get<int>();
 			int wdr = _js["isp"]["wdr"].get<int>();
@@ -403,25 +401,25 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			int sharpness = _js["isp"]["sharpness"].get<int>();
 			int brightness = _js["isp"]["brightness"].get<int>();
 			int saturation = _js["isp"]["saturation"].get<int>();
-			int flip_mirror = _js["isp"]["flip_mirror"].get<int>();
-			int anti_flicker = _js["isp"]["anti_flicker"].get<int>();
-			int anti_fogging = _js["isp"]["anti_fogging"].get<int>();
-			if (flip_mirror == 1) {
+			int flipOrMirror = _js["isp"]["flip_mirror"].get<int>();
+			int antiFlicker = _js["isp"]["anti_flicker"].get<int>();
+			bool antiFogging = _js["isp"]["anti_fogging"].get<bool>();
+			if (flipOrMirror == 1) {
 				rc |= rk_isp_set_image_flip(0, "flip");
-			} else if (flip_mirror == 2) {
+			} else if (flipOrMirror == 2) {
 				rc |= rk_isp_set_image_flip(0, "mirror");
-			} else if (flip_mirror == 3) {
+			} else if (flipOrMirror == 3) {
 				rc |= rk_isp_set_image_flip(0, "centrosymmetric");
 			} else {
 				rc |= rk_isp_set_image_flip(0, "close");
 			}
-			if (anti_fogging > 0) {
+			if (antiFogging) {
 				rc |= rk_isp_set_dehaze(0, "open");
-				rc |= rk_isp_set_dehaze_level(0, anti_fogging);
+				rc |= rk_isp_set_dehaze_level(0, 100);
 			} else {
 				rc |= rk_isp_set_dehaze(0, "close");
 			}
-			if (anti_flicker == 50) {
+			if (antiFlicker == 50) {
 				rc |= rk_isp_set_power_line_frequency_mode(0, "PAL(50HZ)");
 			} else {
 				rc |= rk_isp_set_power_line_frequency_mode(0, "NTSC(60HZ)");
@@ -431,10 +429,54 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			rc |= rk_isp_set_sharpness(0, sharpness);
 			rc |= rk_isp_set_brightness(0, brightness);
 			rc |= rk_isp_set_saturation(0, saturation);
+			/* WDR: 0..100 -> DRC (dark boost). sc401ai/IQ has no HDR mode, keep the ISP in NORMAL */
+			int level = wdr < 0 ? 0 : (wdr > 100 ? 100 : wdr);
+			rc |= rk_isp_set_dark_boost_level(0, level);
+
+			/* White balance: mode 0 = auto, 1 = manual (red/green/blue 0..100) */
+			if (_js["isp"].contains("white_balance")) {
+				nlohmann::json &wb = _js["isp"]["white_balance"];
+				int wbMode = wb.value("mode", 0);
+				rc |= rk_isp_set_white_blance_style(0, wbMode == 1 ? "manualWhiteBalance" : "autoWhiteBalance");
+				if (wbMode == 1) {
+					/* Return value of rk_isp_set_white_blance_* is uninitialized in rkipc, ignore it */
+					rk_isp_set_white_blance_red(0, wb.value("red", 50));
+					rk_isp_set_white_blance_green(0, wb.value("green", 50));
+					rk_isp_set_white_blance_blue(0, wb.value("blue", 50));
+				}
+			}
+			/* Exposure: mode 0 = auto, 1 = manual (time, gain_mode, gain 1..100) */
+			if (_js["isp"].contains("exposure")) {
+				nlohmann::json &exp = _js["isp"]["exposure"];
+				if (exp.value("mode", 0) == 1) {
+					std::string time = exp.value("time", std::string("1/25"));
+					std::string gainMode = exp.value("gain_mode", std::string("auto"));
+					rc |= rk_isp_set_exposure_mode(0, "manual");
+					rc |= rk_isp_set_exposure_time(0, time.c_str());
+					rc |= rk_isp_set_gain_mode(0, gainMode == "manual" ? "manual" : "auto");
+					if (gainMode == "manual") {
+						rc |= rk_isp_set_exposure_gain(0, exp.value("gain", 1));
+					}
+				} else {
+					rc |= rk_isp_set_exposure_mode(0, "auto");
+				}
+			}
+			/* Noise reduction: mode "close" | "2dnr" | "3dnr" | "mixnr", level 0..100 */
+			if (_js["isp"].contains("noise_reduction")) {
+				nlohmann::json &nr = _js["isp"]["noise_reduction"];
+				std::string mode = nr.value("mode", std::string("close"));
+				int level = nr.value("level", 50);
+				if (mode != "2dnr" && mode != "3dnr" && mode != "mixnr") {
+					mode = "close";
+				}
+				/* Return value of rk_isp_set_noise_reduce_mode is uninitialized in rkipc, ignore it */
+				rk_isp_set_noise_reduce_mode(0, mode.c_str());
+				/* rkipc forces level to 50 for the denoise type not used by current mode */
+				rc |= rk_isp_set_spatial_denoise_level(0, level);
+				rc |= rk_isp_set_temporal_denoise_level(0, level);
+			}
 		}
-		/*
-			@smart_ir
-		*/
+		/* IR Smart */
 		if (_js.contains("smart_ir")) {
 			char *value = NULL;
 			if (0 == _js["smart_ir"]["switch_context"].get<int>()) {
@@ -448,9 +490,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			rc |= rk_isp_set_night_to_day(0, value);
 			rc |= rk_isp_set_light_brightness(0, irDimmer);
 		}
-		/*
-			@osd
-		*/
+		/* OSD */
 		if (_js.contains("osd")) {
 			if (_js["osd"].contains("font_size") && _js["osd"].contains("font_color")) {
 				int size = _js["osd"]["font_size"].get<int>();
@@ -496,12 +536,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 				rk_osd_restart();
 			}
 		}
-		/*
-			@privacy_masks
-			Privacy masks are scaled to the maximum stream resolution space
-			(e.g. 1920x1080) because video_rtu.c draws them directly on the VI
-			channel at max resolution.
-		*/
+		/* Privacy masks */
 		if (_js.contains("privacy_masks")) {
 			int norm_w = rk_param_get_int("osd.common:normalized_screen_width", 704);
 			int norm_h = rk_param_get_int("osd.common:normalized_screen_height", 480);

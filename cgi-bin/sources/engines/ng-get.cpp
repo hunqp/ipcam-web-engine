@@ -143,18 +143,41 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
     } else {
         data["isp"]["flip_mirror"] = 0;
     }
-    value = rk_param_get_string("isp.0.video_adjustment:power_line_frequency_mode", NULL);
-    if (strcmp(value, "PAL(50HZ)") == 0) {
-        data["isp"]["anti_flicker"] = 50;
+    value = rk_param_get_string("isp.0.video_adjustment:power_line_frequency_mode", "PAL(50HZ)");
+    data["isp"]["anti_flicker"] = (strcmp(value, "PAL(50HZ)") == 0) ? 50 : 60;
+    value = rk_param_get_string("isp.0.enhancement:dehaze", "close");
+    data["isp"]["anti_fogging"] = (strcmp(value, "close") != 0) ? true : false;
+    /*
+        @isp.white_balance
+    */
+    value = rk_param_get_string("isp.0.white_blance:white_blance_style", "autoWhiteBalance");
+    data["isp"]["white_balance"]["mode"] = (strcmp(value, "manualWhiteBalance") == 0) ? 1 : 0;
+    data["isp"]["white_balance"]["red"] = rk_param_get_int("isp.0.white_blance:white_blance_red", 50);
+    data["isp"]["white_balance"]["green"] = rk_param_get_int("isp.0.white_blance:white_blance_green", 50);
+    data["isp"]["white_balance"]["blue"] = rk_param_get_int("isp.0.white_blance:white_blance_blue", 50);
+    /*
+        @isp.exposure
+    */
+    value = rk_param_get_string("isp.0.exposure:exposure_mode", "auto");
+    data["isp"]["exposure"]["mode"] = (strcmp(value, "manual") == 0) ? 1 : 0;
+    data["isp"]["exposure"]["time"] = rk_param_get_string("isp.0.exposure:exposure_time", "1/25");
+    data["isp"]["exposure"]["gain_mode"] = rk_param_get_string("isp.0.exposure:gain_mode", "auto");
+    data["isp"]["exposure"]["gain"] = rk_param_get_int("isp.0.exposure:exposure_gain", 1);
+    /*
+        @isp.noise_reduction
+    */
+    value = rk_param_get_string("isp.0.enhancement:noise_reduce_mode", "close");
+    data["isp"]["noise_reduction"]["mode"] = value;
+    if (strcmp(value, "2dnr") == 0) {
+        data["isp"]["noise_reduction"]["level"] = rk_param_get_int("isp.0.enhancement:spatial_denoise_level", 50);
     } else {
-        data["isp"]["anti_flicker"] = 60;
+        data["isp"]["noise_reduction"]["level"] = rk_param_get_int("isp.0.enhancement:temporal_denoise_level", 50);
     }
-    data["isp"]["anti_fogging"] = rk_param_get_int("isp.0.enhancement:dehaze_level", -1);
     /*
         @smart_ir
     */
     data["smart_ir"]["ir_dimmer"] = rk_param_get_int("isp.1.night_to_day:light_brightness", 50);
-    data["smart_ir"]["switch_context"] = rk_param_get_int("isp:auto_day_night", -1);
+    data["smart_ir"]["switch_context"] = rk_param_get_int("isp:auto_day_night", 1);
     /*
         @osd
     */
