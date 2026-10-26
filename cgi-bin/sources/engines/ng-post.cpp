@@ -250,18 +250,18 @@ static void APIV1_CGI_MediaVideo(FCGX_Request &message, nlohmann::json &js) {
 		/*
 			@main_stream
 		*/
-		if (_js.contains("main_stream")) {
-			nlohmann::json sjs = _js["main_stream"];
+		if (_js.contains("mainStream")) {
+			nlohmann::json sjs = _js["mainStream"];
 			
 			int fps = sjs["fps"].get<int>();
 			int gop = sjs["gop"].get<int>();
-			int min_bitrate = sjs["min_bitrate"].get<int>();
-			int max_bitrate = sjs["max_bitrate"].get<int>();
-			std::string rc_mode = sjs["rc_mode"].get<std::string>();
-			int rc_quality = sjs["rc_quality"].get<int>();
-			std::string encode_type = sjs["encode_type"].get<std::string>();
-			int min_qp = sjs["min_qp"].get<int>();
-			int max_qp = sjs["max_qp"].get<int>();
+			int min_bitrate = sjs["minBitrate"].get<int>();
+			int max_bitrate = sjs["maxBitrate"].get<int>();
+			std::string rc_mode = sjs["rcMode"].get<std::string>();
+			int rc_quality = sjs["rcQuality"].get<int>();
+			std::string encode_type = sjs["encodeType"].get<std::string>();
+			int min_qp = sjs["minQp"].get<int>();
+			int max_qp = sjs["maxQp"].get<int>();
 			char stFps[8] = {0};
 			snprintf(stFps, sizeof(stFps), "%d", fps);
 			char resolution[16] = {0};
@@ -303,14 +303,14 @@ static void APIV1_CGI_MediaVideo(FCGX_Request &message, nlohmann::json &js) {
 		/*
 			@minor_stream
 		*/
-		if (_js.contains("minor_stream")) {
-			nlohmann::json sjs = _js["minor_stream"];
+		if (_js.contains("minorStream")) {
+			nlohmann::json sjs = _js["minorStream"];
 			int fps = sjs["fps"].get<int>();
 			int gop = sjs["gop"].get<int>();
-			int max_bitrate = sjs["max_bitrate"].get<int>();
-			std::string rc_mode = sjs["rc_mode"].get<std::string>();
-			int rc_quality = sjs["rc_quality"].get<int>();
-			std::string encode_type = sjs["encode_type"].get<std::string>();
+			int max_bitrate = sjs["maxBitrate"].get<int>();
+			std::string rc_mode = sjs["rcMode"].get<std::string>();
+			int rc_quality = sjs["rcQuality"].get<int>();
+			std::string encode_type = sjs["encodeType"].get<std::string>();
 
 			char stFps[8] = {0};
 			snprintf(stFps, sizeof(stFps), "%d", fps);
@@ -363,8 +363,8 @@ static void APIV1_CGI_MediaAudio(FCGX_Request &message, nlohmann::json &js) {
 	{
 		int gain = _js["microphone"]["gain"].get<int>();
 		int volume = _js["microphone"]["volume"].get<int>();
-		int echo_cancellation = _js["microphone"]["echo_cancellation"].get<bool>();
-		int noise_suppression = _js["microphone"]["noise_suppression"].get<bool>();
+		int echo_cancellation = _js["microphone"]["echoCancellation"].get<bool>();
+		int noise_suppression = _js["microphone"]["noiseSuppression"].get<bool>();
 		rc = rk_audio_set_volume(0, volume);
 	}
 	#if 0
@@ -374,8 +374,8 @@ static void APIV1_CGI_MediaAudio(FCGX_Request &message, nlohmann::json &js) {
 	*/
 	{
 		int volume = _js["speaker"]["volume"].get<int>();
-		int software_amplifier = _js["speaker"]["software_amplifier"].get<bool>();
-		int software_amplifier_value = _js["speaker"]["software_amplifier_value"].get<float>();
+		int software_amplifier = _js["speaker"]["softwareAmplifier"].get<bool>();
+		int software_amplifier_value = _js["speaker"]["softwareAmplifierValue"].get<float>();
 	}
 	#endif
 	
@@ -401,9 +401,9 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			int sharpness = _js["isp"]["sharpness"].get<int>();
 			int brightness = _js["isp"]["brightness"].get<int>();
 			int saturation = _js["isp"]["saturation"].get<int>();
-			int flipOrMirror = _js["isp"]["flip_mirror"].get<int>();
-			int antiFlicker = _js["isp"]["anti_flicker"].get<int>();
-			bool antiFogging = _js["isp"]["anti_fogging"].get<bool>();
+			int flipOrMirror = _js["isp"]["flipMirror"].get<int>();
+			int antiFlicker = _js["isp"]["antiFlicker"].get<int>();
+			bool antiFogging = _js["isp"]["antiFogging"].get<bool>();
 			if (flipOrMirror == 1) {
 				rc |= rk_isp_set_image_flip(0, "flip");
 			} else if (flipOrMirror == 2) {
@@ -434,8 +434,8 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			rc |= rk_isp_set_dark_boost_level(0, level);
 
 			/* White balance: mode 0 = auto, 1 = manual (red/green/blue 0..100) */
-			if (_js["isp"].contains("white_balance")) {
-				nlohmann::json &wb = _js["isp"]["white_balance"];
+			if (_js["isp"].contains("whiteBalance")) {
+				nlohmann::json &wb = _js["isp"]["whiteBalance"];
 				int wbMode = wb.value("mode", 0);
 				rc |= rk_isp_set_white_blance_style(0, wbMode == 1 ? "manualWhiteBalance" : "autoWhiteBalance");
 				if (wbMode == 1) {
@@ -450,7 +450,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 				nlohmann::json &exp = _js["isp"]["exposure"];
 				if (exp.value("mode", 0) == 1) {
 					std::string time = exp.value("time", std::string("1/25"));
-					std::string gainMode = exp.value("gain_mode", std::string("auto"));
+					std::string gainMode = exp.value("gainMode", std::string("auto"));
 					rc |= rk_isp_set_exposure_mode(0, "manual");
 					rc |= rk_isp_set_exposure_time(0, time.c_str());
 					rc |= rk_isp_set_gain_mode(0, gainMode == "manual" ? "manual" : "auto");
@@ -462,8 +462,8 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 				}
 			}
 			/* Noise reduction: mode "close" | "2dnr" | "3dnr" | "mixnr", level 0..100 */
-			if (_js["isp"].contains("noise_reduction")) {
-				nlohmann::json &nr = _js["isp"]["noise_reduction"];
+			if (_js["isp"].contains("noiseReduction")) {
+				nlohmann::json &nr = _js["isp"]["noiseReduction"];
 				std::string mode = nr.value("mode", std::string("close"));
 				int level = nr.value("level", 50);
 				if (mode != "2dnr" && mode != "3dnr" && mode != "mixnr") {
@@ -477,38 +477,38 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			}
 		}
 		/* IR Smart */
-		if (_js.contains("smart_ir")) {
+		if (_js.contains("smartIr")) {
 			char *value = NULL;
-			if (0 == _js["smart_ir"]["switch_context"].get<int>()) {
+			if (0 == _js["smartIr"]["switchContext"].get<int>()) {
 				value = (char *)"day";
-			} else if (1 == _js["smart_ir"]["switch_context"].get<int>()) {
+			} else if (1 == _js["smartIr"]["switchContext"].get<int>()) {
 				value = (char *)"night";
 			} else {
 				value = (char *)"auto";
 			}
-			int irDimmer = _js["smart_ir"]["ir_dimmer"].get<int>();
+			int irDimmer = _js["smartIr"]["irDimmer"].get<int>();
 			rc |= rk_isp_set_night_to_day(0, value);
 			rc |= rk_isp_set_light_brightness(0, irDimmer);
 		}
 		/* OSD */
 		if (_js.contains("osd")) {
-			if (_js["osd"].contains("font_size") && _js["osd"].contains("font_color")) {
-				int size = _js["osd"]["font_size"].get<int>();
-				std::string color = _js["osd"]["font_color"].get<std::string>();
+			if (_js["osd"].contains("fontSize") && _js["osd"].contains("fontColor")) {
+				int size = _js["osd"]["fontSize"].get<int>();
+				std::string color = _js["osd"]["fontColor"].get<std::string>();
 				rc |= rk_osd_set_font_size(size);
 				rc |= rk_osd_set_font_color(color.c_str());
 			}
 			if (_js["osd"].contains("datetime")) {
-				int x = _js["osd"]["datetime"]["position_x"].get<int>();
-				int y = _js["osd"]["datetime"]["position_y"].get<int>();
+				int x = _js["osd"]["datetime"]["positionX"].get<int>();
+				int y = _js["osd"]["datetime"]["positionY"].get<int>();
 				bool enabled = _js["osd"]["datetime"]["enabled"].get<bool>();
 				rc |= rk_osd_set_enabled(1, enabled);
 				rc |= rk_osd_set_position_x(1, x);
 				rc |= rk_osd_set_position_y(1, y);
 			}
 			if (_js["osd"].contains("watermark")) {
-				int x = _js["osd"]["watermark"]["position_x"].get<int>();
-				int y = _js["osd"]["watermark"]["position_y"].get<int>();
+				int x = _js["osd"]["watermark"]["positionX"].get<int>();
+				int y = _js["osd"]["watermark"]["positionY"].get<int>();
 				bool enabled = _js["osd"]["watermark"]["enabled"].get<bool>();
 				std::string content = _js["osd"]["watermark"]["content"].get<std::string>();
 				rc |= rk_osd_set_enabled(0, enabled);
@@ -516,17 +516,17 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 				rc |= rk_osd_set_position_y(0, y);
 				rc |= rk_osd_set_display_text(0, content.c_str());
 			}
-			if (_js["osd"].contains("image_logo")) {
-				int x = _js["osd"]["image_logo"]["position_x"].get<int>();
-				int y = _js["osd"]["image_logo"]["position_y"].get<int>();
-				bool enabled = _js["osd"]["image_logo"]["enabled"].get<bool>();
+			if (_js["osd"].contains("imageLogo")) {
+				int x = _js["osd"]["imageLogo"]["positionX"].get<int>();
+				int y = _js["osd"]["imageLogo"]["positionY"].get<int>();
+				bool enabled = _js["osd"]["imageLogo"]["enabled"].get<bool>();
 				rc |= rk_osd_set_enabled(6, enabled);
 				rc |= rk_osd_set_position_x(6, x);
 				rc |= rk_osd_set_position_y(6, y);
 			}
 			if (_js["osd"].contains("rs485")) {
-				int x = _js["osd"]["rs485"]["position_x"].get<int>();
-				int y = _js["osd"]["rs485"]["position_y"].get<int>();
+				int x = _js["osd"]["rs485"]["positionX"].get<int>();
+				int y = _js["osd"]["rs485"]["positionY"].get<int>();
 				bool enabled = _js["osd"]["rs485"]["enabled"].get<bool>();
 				rc |= rk_osd_set_position_x(3, x);
 				rc |= rk_osd_set_position_y(3, y);
@@ -537,7 +537,7 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 			}
 		}
 		/* Privacy masks */
-		if (_js.contains("privacy_masks")) {
+		if (_js.contains("privacyMasks")) {
 			int norm_w = rk_param_get_int("osd.common:normalized_screen_width", 704);
 			int norm_h = rk_param_get_int("osd.common:normalized_screen_height", 480);
 			if (norm_w <= 0)
@@ -546,17 +546,17 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
 				norm_h = 480;
 
 			/* Always disable both masks first to handle deletion or empty array */
-			if (_js["privacy_masks"].size() == 0) {
+			if (_js["privacyMasks"].size() == 0) {
 				rc |= rk_osd_set_enabled(4, false);
 				rc |= rk_osd_set_enabled(5, false);
 			} else {
-				for (uint8_t id = 0; id < _js["privacy_masks"].size(); ++id) {
+				for (uint8_t id = 0; id < _js["privacyMasks"].size(); ++id) {
 					int selected = (id == 0) ? 4 : 5;
-					int w_web = _js["privacy_masks"][id]["width"].get<int>();
-					int h_web = _js["privacy_masks"][id]["height"].get<int>();
-					int x_web = _js["privacy_masks"][id]["position_x"].get<int>();
-					int y_web = _js["privacy_masks"][id]["position_y"].get<int>();
-					bool enabled = _js["privacy_masks"][id]["enabled"].get<bool>();
+					int w_web = _js["privacyMasks"][id]["width"].get<int>();
+					int h_web = _js["privacyMasks"][id]["height"].get<int>();
+					int x_web = _js["privacyMasks"][id]["positionX"].get<int>();
+					int y_web = _js["privacyMasks"][id]["positionY"].get<int>();
+					bool enabled = _js["privacyMasks"][id]["enabled"].get<bool>();
 					int x = (x_web * norm_w) / 2304;
 					int y = (y_web * norm_h) / 1296;
 					int w = (w_web * norm_w) / 2304;
@@ -666,8 +666,8 @@ static void APIV1_CGI_NetworkLanMode(FCGX_Request &message, nlohmann::json &js) 
 		sMainTimer.dispatch("network", 1000, [_js]() {
 			bool dhcp = _js["dhcp"].get<bool>();
 			char *method = (dhcp) ? (char*)"dhcp" : (char*)"static";
-			std::string ADDRESS = _js["ip_address"].get<std::string>();
-			std::string NETMAKS = _js["subnet_mask"].get<std::string>();
+			std::string ADDRESS = _js["ipAddress"].get<std::string>();
+			std::string NETMAKS = _js["subnetMask"].get<std::string>();
 			std::string GATEWAY = _js["gateway"].get<std::string>();
 			std::string PREFERRED_DNS = _js["dns"][0].get<std::string>();
 			std::string SECONDARY_DNS = "";
@@ -832,8 +832,8 @@ static void APIV1_CGI_SystemUpgrade(FCGX_Request &message, nlohmann::json &js) {
 	sUpgradeBytesReceived += receivedSize;
 	if (sUpgradeBytesReceived < sUpgradeTotalSize) {
 		js["message"] = "Firmware chunk uploaded";
-		js["data"]["received_size"] = sUpgradeBytesReceived;
-		js["data"]["total_size"] = sUpgradeTotalSize;
+		js["data"]["receivedSize"] = sUpgradeBytesReceived;
+		js["data"]["totalSize"] = sUpgradeTotalSize;
 		HTTP_ResponseDataAsJSON(message, 200, js.dump());
 		return;
 	}
@@ -1002,7 +1002,7 @@ static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &j
 	std::string body = HTTP_ExtractBodyContent(message);
 	nlohmann::json _js = nlohmann::json::parse(body);
 	{
-		std::string sn = _js["serial_number"].get<std::string>();
+		std::string sn = _js["serialNumber"].get<std::string>();
 		wrteFile(APP_UNIQUE_SERIAL_FILE, sn);
 		js["success"] = true;
 		js["message"] = "Completed. Device will be rebooted after one second.";
@@ -1198,9 +1198,9 @@ static void APIV1_CGI_EventDetection(FCGX_Request &message, nlohmann::json &js) 
 			@Basic configurations
 		*/
 		bool enabled = _js["enabled"].get<bool>();
-		int type = _js["object_detection"]["type"].get<int>();
-		bool bouding_box = _js["object_detection"]["bounding_box"].get<bool>();
-		int sensitivity_level = _js["object_detection"]["sensitivity_level"].get<int>();
+		int type = _js["objectDetection"]["type"].get<int>();
+		bool bouding_box = _js["objectDetection"]["boundingBox"].get<bool>();
+		int sensitivity_level = _js["objectDetection"]["sensitivityLevel"].get<int>();
 		rc |= rk_objdet_set_type(type);
 		rc |= rk_objdet_set_enabled((int)enabled);
 		rc |= rk_objdet_set_bounding_box((int)bouding_box);
@@ -1209,9 +1209,9 @@ static void APIV1_CGI_EventDetection(FCGX_Request &message, nlohmann::json &js) 
 		/* 
 			@Advanced configurations
 		*/
-		int rule = _js["region_of_interest"]["rule"].get<int>();
-		std::string shape = _js["region_of_interest"]["shape"].get<std::string>();
-		auto &points = _js["region_of_interest"]["points"];
+		int rule = _js["regionOfInterest"]["rule"].get<int>();
+		std::string shape = _js["regionOfInterest"]["shape"].get<std::string>();
+		auto &points = _js["regionOfInterest"]["points"];
 		rc |= rk_roi_set_enabled(3, enabled);
 		rc |= rk_roi_set_id(3, rule);
 		rc |= rk_roi_set_name(3, shape.c_str());
@@ -1232,8 +1232,8 @@ static void APIV1_CGI_EventAlarm(FCGX_Request &message, nlohmann::json &js) {
 		/* 
 			@We safe certificate in seperate for CURL using
 		*/
-		std::string cert = _js["alarm"]["upload"]["tls"]["ca_certificate"].get<std::string>();
-		_js["alarm"]["upload"]["tls"]["ca_certificate"].clear();
+		std::string cert = _js["alarm"]["upload"]["tls"]["caCertificate"].get<std::string>();
+		_js["alarm"]["upload"]["tls"]["caCertificate"].clear();
 		wrteFile(APP_EVENT_DISPATCHER_CERT, cert);
 		wrteFile(APP_EVENT_DISPATCHER_FILE, _js.dump());
 	}
@@ -1296,8 +1296,8 @@ static void APIV1_CGI_IndustriaEndpoint(FCGX_Request &message, nlohmann::json &j
 		/* 
 			@We safe certificate in seperate for using CURL
 		*/
-		std::string cert = _js["tls"]["ca_certificate"].get<std::string>();
-		_js["tls"]["ca_certificate"].clear();
+		std::string cert = _js["tls"]["caCertificate"].get<std::string>();
+		_js["tls"]["caCertificate"].clear();
 		wrteFile(APP_INDUS_ENDPOINT_CERT, cert);
 		wrteFile(APP_INDUS_ENDPOINT_FILE, _js.dump());
 	}

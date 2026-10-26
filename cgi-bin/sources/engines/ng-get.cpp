@@ -69,35 +69,35 @@ static void APIV1_CGI_MediaVideo(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json &data = js["data"];
 
     for (uint8_t n = 0; n < 2; ++n) {
-        char *chnlNamed = (n == 0) ? (char *)"main_stream" : (char *)"minor_stream";
+        char *chnlNamed = (n == 0) ? (char *)"mainStream" : (char *)"minorStream";
         data[chnlNamed]["width"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":width").c_str(), -1);
         data[chnlNamed]["height"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":height").c_str(), -1);
         data[chnlNamed]["fps"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":src_frame_rate_num").c_str(), -1);
         data[chnlNamed]["gop"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":gop").c_str(), -1);
-        data[chnlNamed]["min_bitrate"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":mid_rate").c_str(), -1);
-        data[chnlNamed]["max_bitrate"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":max_rate").c_str(), -1);
-        data[chnlNamed]["rc_mode"] = rk_param_get_string((std::string("video.") + std::to_string(n) + ":rc_mode").c_str(), NULL);
-        data[chnlNamed]["min_qp"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":frame_min_qp").c_str(), -1);
-        data[chnlNamed]["max_qp"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":frame_max_qp").c_str(), -1);
+        data[chnlNamed]["minBitrate"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":mid_rate").c_str(), -1);
+        data[chnlNamed]["maxBitrate"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":max_rate").c_str(), -1);
+        data[chnlNamed]["rcMode"] = rk_param_get_string((std::string("video.") + std::to_string(n) + ":rc_mode").c_str(), NULL);
+        data[chnlNamed]["minQp"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":frame_min_qp").c_str(), -1);
+        data[chnlNamed]["maxQp"] = rk_param_get_int((std::string("video.") + std::to_string(n) + ":frame_max_qp").c_str(), -1);
         std::string quality = rk_param_get_string((std::string("video.") + std::to_string(n) + ":rc_quality").c_str(), "high");
         if (quality == "lowest") {
-            data[chnlNamed]["rc_quality"] = 1;
+            data[chnlNamed]["rcQuality"] = 1;
         } else if (quality == "lower") {
-            data[chnlNamed]["rc_quality"] = 2;
+            data[chnlNamed]["rcQuality"] = 2;
         } else if (quality == "low") {
-            data[chnlNamed]["rc_quality"] = 3;
+            data[chnlNamed]["rcQuality"] = 3;
         } else if (quality == "high") {
-            data[chnlNamed]["rc_quality"] = 4;
+            data[chnlNamed]["rcQuality"] = 4;
         } else if (quality == "higher") {
-            data[chnlNamed]["rc_quality"] = 5;
+            data[chnlNamed]["rcQuality"] = 5;
         } else if (quality == "highest") {
-            data[chnlNamed]["rc_quality"] = 6;
+            data[chnlNamed]["rcQuality"] = 6;
         }
         const char *codec = rk_param_get_string((std::string("video.") + std::to_string(n) + ":output_data_type").c_str(), "H.264");
         if (strcmp(codec, "H.265") == 0) {
-            data[chnlNamed]["encode_type"] = "H265";
+            data[chnlNamed]["encodeType"] = "H265";
         }  else {
-            data[chnlNamed]["encode_type"] = "H264";
+            data[chnlNamed]["encodeType"] = "H264";
         }
     }
 
@@ -108,14 +108,14 @@ static void APIV1_CGI_MediaAudio(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json &data = js["data"];
     data["microphone"]["volume"] = rk_param_get_int("audio.0:volume", 100);
     data["microphone"]["gain"] = rk_param_get_int("audio.0:gain", 0);
-    data["microphone"]["echo_cancellation"] = rk_param_get_int("audio.0:enable_aed", 0) != 0;
-    data["microphone"]["noise_suppression"] = rk_param_get_int("audio.0:enable_vqe", 0) != 0;
+    data["microphone"]["echoCancellation"] = rk_param_get_int("audio.0:enable_aed", 0) != 0;
+    data["microphone"]["noiseSuppression"] = rk_param_get_int("audio.0:enable_vqe", 0) != 0;
     data["speaker"]["volume"] = rk_param_get_int("audio.0:volume", 100);
-    data["speaker"]["software_amplifier"] = rk_param_get_int("audio.0:software_amplifier", 0) != 0;
+    data["speaker"]["softwareAmplifier"] = rk_param_get_int("audio.0:software_amplifier", 0) != 0;
 
     const char *sav_str = rk_param_get_string("audio.0:software_amplifier_value", "1.0");
     double sav = sav_str ? std::atof(sav_str) : 1.0;
-    data["speaker"]["software_amplifier_value"] = sav;
+    data["speaker"]["softwareAmplifierValue"] = sav;
 
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -135,70 +135,70 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
     data["isp"]["saturation"] = rk_param_get_int("isp.0.adjustment:saturation", -1);
     value = rk_param_get_string("isp.0.video_adjustment:image_flip", NULL);
     if (strcmp(value, "flip") == 0) {
-        data["isp"]["flip_mirror"] = 1;
+        data["isp"]["flipMirror"] = 1;
     } else if (strcmp(value, "mirror") == 0) {
-        data["isp"]["flip_mirror"] = 2;
+        data["isp"]["flipMirror"] = 2;
     } else if (strcmp(value, "centrosymmetric") == 0) {
-        data["isp"]["flip_mirror"] = 3;
+        data["isp"]["flipMirror"] = 3;
     } else {
-        data["isp"]["flip_mirror"] = 0;
+        data["isp"]["flipMirror"] = 0;
     }
     value = rk_param_get_string("isp.0.video_adjustment:power_line_frequency_mode", "PAL(50HZ)");
-    data["isp"]["anti_flicker"] = (strcmp(value, "PAL(50HZ)") == 0) ? 50 : 60;
+    data["isp"]["antiFlicker"] = (strcmp(value, "PAL(50HZ)") == 0) ? 50 : 60;
     value = rk_param_get_string("isp.0.enhancement:dehaze", "close");
-    data["isp"]["anti_fogging"] = (strcmp(value, "close") != 0) ? true : false;
+    data["isp"]["antiFogging"] = (strcmp(value, "close") != 0) ? true : false;
     /*
         @isp.white_balance
     */
     value = rk_param_get_string("isp.0.white_blance:white_blance_style", "autoWhiteBalance");
-    data["isp"]["white_balance"]["mode"] = (strcmp(value, "manualWhiteBalance") == 0) ? 1 : 0;
-    data["isp"]["white_balance"]["red"] = rk_param_get_int("isp.0.white_blance:white_blance_red", 50);
-    data["isp"]["white_balance"]["green"] = rk_param_get_int("isp.0.white_blance:white_blance_green", 50);
-    data["isp"]["white_balance"]["blue"] = rk_param_get_int("isp.0.white_blance:white_blance_blue", 50);
+    data["isp"]["whiteBalance"]["mode"] = (strcmp(value, "manualWhiteBalance") == 0) ? 1 : 0;
+    data["isp"]["whiteBalance"]["red"] = rk_param_get_int("isp.0.white_blance:white_blance_red", 50);
+    data["isp"]["whiteBalance"]["green"] = rk_param_get_int("isp.0.white_blance:white_blance_green", 50);
+    data["isp"]["whiteBalance"]["blue"] = rk_param_get_int("isp.0.white_blance:white_blance_blue", 50);
     /*
         @isp.exposure
     */
     value = rk_param_get_string("isp.0.exposure:exposure_mode", "auto");
     data["isp"]["exposure"]["mode"] = (strcmp(value, "manual") == 0) ? 1 : 0;
     data["isp"]["exposure"]["time"] = rk_param_get_string("isp.0.exposure:exposure_time", "1/25");
-    data["isp"]["exposure"]["gain_mode"] = rk_param_get_string("isp.0.exposure:gain_mode", "auto");
+    data["isp"]["exposure"]["gainMode"] = rk_param_get_string("isp.0.exposure:gain_mode", "auto");
     data["isp"]["exposure"]["gain"] = rk_param_get_int("isp.0.exposure:exposure_gain", 1);
     /*
         @isp.noise_reduction
     */
     value = rk_param_get_string("isp.0.enhancement:noise_reduce_mode", "close");
-    data["isp"]["noise_reduction"]["mode"] = value;
+    data["isp"]["noiseReduction"]["mode"] = value;
     if (strcmp(value, "2dnr") == 0) {
-        data["isp"]["noise_reduction"]["level"] = rk_param_get_int("isp.0.enhancement:spatial_denoise_level", 50);
+        data["isp"]["noiseReduction"]["level"] = rk_param_get_int("isp.0.enhancement:spatial_denoise_level", 50);
     } else {
-        data["isp"]["noise_reduction"]["level"] = rk_param_get_int("isp.0.enhancement:temporal_denoise_level", 50);
+        data["isp"]["noiseReduction"]["level"] = rk_param_get_int("isp.0.enhancement:temporal_denoise_level", 50);
     }
     /*
         @smart_ir
     */
-    data["smart_ir"]["ir_dimmer"] = rk_param_get_int("isp.1.night_to_day:light_brightness", 50);
-    data["smart_ir"]["switch_context"] = rk_param_get_int("isp:auto_day_night", 1);
+    data["smartIr"]["irDimmer"] = rk_param_get_int("isp.1.night_to_day:light_brightness", 50);
+    data["smartIr"]["switchContext"] = rk_param_get_int("isp:auto_day_night", 1);
     /*
         @osd
     */
-    data["osd"]["font_size"] = rk_param_get_int("osd.common:font_size", -1);
-    data["osd"]["font_color"] = rk_param_get_string("osd.common:font_color", NULL);
+    data["osd"]["fontSize"] = rk_param_get_int("osd.common:font_size", -1);
+    data["osd"]["fontColor"] = rk_param_get_string("osd.common:font_color", NULL);
     data["osd"]["datetime"]["enabled"] = (rk_param_get_int("osd.1:enabled", -1) == 1);
-    data["osd"]["datetime"]["position_x"] = rk_param_get_int("osd.1:position_x", -1);
-    data["osd"]["datetime"]["position_y"] = rk_param_get_int("osd.1:position_y", -1);
+    data["osd"]["datetime"]["positionX"] = rk_param_get_int("osd.1:position_x", -1);
+    data["osd"]["datetime"]["positionY"] = rk_param_get_int("osd.1:position_y", -1);
     data["osd"]["watermark"]["enabled"] = (rk_param_get_int("osd.0:enabled", -1) == 1);
     data["osd"]["watermark"]["content"] = rk_param_get_string("osd.0:display_text", NULL);
-    data["osd"]["watermark"]["position_x"] = rk_param_get_int("osd.0:position_x", -1);
-    data["osd"]["watermark"]["position_y"] = rk_param_get_int("osd.0:position_y", -1);
-    data["osd"]["image_logo"]["enabled"] = (rk_param_get_int("osd.6:enabled", -1) == 1);
-    data["osd"]["image_logo"]["position_x"] = rk_param_get_int("osd.6:position_x", -1);
-    data["osd"]["image_logo"]["position_y"] = rk_param_get_int("osd.6:position_y", -1);
+    data["osd"]["watermark"]["positionX"] = rk_param_get_int("osd.0:position_x", -1);
+    data["osd"]["watermark"]["positionY"] = rk_param_get_int("osd.0:position_y", -1);
+    data["osd"]["imageLogo"]["enabled"] = (rk_param_get_int("osd.6:enabled", -1) == 1);
+    data["osd"]["imageLogo"]["positionX"] = rk_param_get_int("osd.6:position_x", -1);
+    data["osd"]["imageLogo"]["positionY"] = rk_param_get_int("osd.6:position_y", -1);
     data["osd"]["modbus"]["enabled"] = (rk_param_get_int("osd.3:enabled", -1) == 1);
-    data["osd"]["modbus"]["position_x"] = rk_param_get_int("osd.3:position_x", -1);
-    data["osd"]["modbus"]["position_y"] = rk_param_get_int("osd.3:position_y", -1);
+    data["osd"]["modbus"]["positionX"] = rk_param_get_int("osd.3:position_x", -1);
+    data["osd"]["modbus"]["positionY"] = rk_param_get_int("osd.3:position_y", -1);
     data["osd"]["rs485"]["enabled"] = (rk_param_get_int("osd.3:enabled", -1) == 1);
-    data["osd"]["rs485"]["position_x"] = rk_param_get_int("osd.3:position_x", -1);
-    data["osd"]["rs485"]["position_y"] = rk_param_get_int("osd.3:position_y", -1);
+    data["osd"]["rs485"]["positionX"] = rk_param_get_int("osd.3:position_x", -1);
+    data["osd"]["rs485"]["positionY"] = rk_param_get_int("osd.3:position_y", -1);
     /*
         @privacy_masks
     */
@@ -236,18 +236,18 @@ static void APIV1_CGI_MediaImage(FCGX_Request &message, nlohmann::json &js) {
     if (h5 != -1)
         h5 = (h5 * 1296) / norm_h;
 
-    data["privacy_masks"].push_back(
+    data["privacyMasks"].push_back(
         nlohmann::json({{"enabled", (rk_param_get_int("osd.4:enabled", -1) == 1)},
                         {"width", w4},
                         {"height", h4},
-                        {"position_x", x4},
-                        {"position_y", y4}}));
-    data["privacy_masks"].push_back(
+                        {"positionX", x4},
+                        {"positionY", y4}}));
+    data["privacyMasks"].push_back(
         nlohmann::json({{"enabled", (rk_param_get_int("osd.5:enabled", -1) == 1)},
                         {"width", w5},
                         {"height", h5},
-                        {"position_x", x5},
-                        {"position_y", y5}}));
+                        {"positionX", x5},
+                        {"positionY", y5}}));
 
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -288,9 +288,9 @@ static void APIV1_CGI_NetworkStatus(FCGX_Request &message, nlohmann::json &js) {
         }
         data["wifi"]["connected"] = isConnected;
         data["wifi"]["ssid"] = std::string(ssid);
-        data["wifi"]["ip_address"] = std::string(ip4);
+        data["wifi"]["ipAddress"] = std::string(ip4);
         data["wifi"]["gateway"] = std::string(gw4);
-        data["wifi"]["subnet_mask"] = std::string(subnet4);
+        data["wifi"]["subnetMask"] = std::string(subnet4);
         data["wifi"]["dns"].push_back(std::string(dns));
     }
     /* INTERFACE: ETH0 */
@@ -334,10 +334,10 @@ static void APIV1_CGI_NetworkStatus(FCGX_Request &message, nlohmann::json &js) {
         
         data["lan"]["dhcp"] = dhcp;
         data["lan"]["connected"] = (status == KIWI_IF_UP) ? true : false;
-        data["lan"]["ip_address"] = std::string(ip4);
-        data["lan"]["mac_address"] = std::string(mac);
+        data["lan"]["ipAddress"] = std::string(ip4);
+        data["lan"]["macAddress"] = std::string(mac);
         data["lan"]["gateway"] = std::string(gw4);
-        data["lan"]["subnet_mask"] = std::string(subnet4);
+        data["lan"]["subnetMask"] = std::string(subnet4);
         data["lan"]["dns"].push_back(std::string(dns));
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
@@ -394,7 +394,7 @@ static void APIV1_CGI_SystemTime(FCGX_Request &message, nlohmann::json &js) {
         }
         else {
             /* Assign pseudo values */
-            data["utc_offset"] = std::string("UTC+07:00");
+            data["utcOffset"] = std::string("UTC+07:00");
             data["timezone"] = std::string("Asia/Ho_Chi_Minh");
             data["ntp"]["enabled"] = false;
             data["ntp"]["servers"].push_back(std::string("0.pool.ntp.org"));
@@ -422,11 +422,11 @@ static void APIV1_CGI_SystemInformation(FCGX_Request &message, nlohmann::json &j
         nlohmann::json _js = nlohmann::json::parse(stVersion); 
         data["model"] = _js["Title"].get<std::string>();
         data["manufacturer"] = rk_param_get_string("system.device_info:manufacturer", "UNKOWN");
-        data["serial_number"] = readFile(APP_UNIQUE_SERIAL_FILE);
-        data["release_date"] = _js["SoftwareBuildTime"].get<std::string>();
-        data["firmware_version"] = _js["Version"].get<std::string>();
-        data["release_datetime"] = _js["SoftwareBuildTime"].get<std::string>();
-        data["hardware_version"] = rk_param_get_string("system.device_info:hardware_version", "UNKOWN");
+        data["serialNumber"] = readFile(APP_UNIQUE_SERIAL_FILE);
+        data["releaseDate"] = _js["SoftwareBuildTime"].get<std::string>();
+        data["firmwareVersion"] = _js["Version"].get<std::string>();
+        data["releaseDatetime"] = _js["SoftwareBuildTime"].get<std::string>();
+        data["hardwareVersion"] = rk_param_get_string("system.device_info:hardware_version", "UNKOWN");
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -484,10 +484,10 @@ static void APIV1_CGI_GpioStatus(FCGX_Request &message, nlohmann::json &js) {
     nlohmann::json& data = js["data"];
     {
         std::string spotLightValue = readFile("/sys/class/pwm/pwmchip7/pwm0/duty_cycle");
-        data["siren_status"] = false;
-        data["spotlight_status"] = (spotLightValue == "10000") ? true : false;
-        data["motors_position"]["horizone"] = -1;
-        data["motors_position"]["vertical"] = -1;
+        data["sirenStatus"] = false;
+        data["spotlightStatus"] = (spotLightValue == "10000") ? true : false;
+        data["motorsPosition"]["horizone"] = -1;
+        data["motorsPosition"]["vertical"] = -1;
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -517,13 +517,13 @@ static void APIV1_CGI_EventAlarm(FCGX_Request &message, nlohmann::json &js) {
         else {
             /* Assign peasudo values */
             data["enabled"] = false;
-            data["alarm"]["interval_ms"] = 15000;
+            data["alarm"]["intervalMs"] = 15000;
             data["alarm"]["upload"]["protocol"] = "https";
             data["alarm"]["upload"]["endpoint"] = "https://customer-server.com/api/device-data";
             data["alarm"]["upload"]["port"] = 443;
             data["alarm"]["upload"]["tls"]["enabled"] = false;
-            data["alarm"]["upload"]["tls"]["verify_peer"] = false;
-            data["alarm"]["upload"]["tls"]["ca_certificate"] = "";
+            data["alarm"]["upload"]["tls"]["verifyPeer"] = false;
+            data["alarm"]["upload"]["tls"]["caCertificate"] = "";
             data["alarm"]["action"]["sound"] = false;
             data["alarm"]["action"]["lighting"] = false;
             const std::vector<std::string> days = {
@@ -542,16 +542,16 @@ static void APIV1_CGI_EventDetection(FCGX_Request &message, nlohmann::json &js) 
     nlohmann::json& data = js["data"];
     {
         data["enabled"] = rk_param_get_int("video.source:enable_object_detect", 1) ? true : false;
-        data["object_detection"]["type"] = rk_param_get_int("video.source:object_detect_filter", 1);
-        data["object_detection"]["bounding_box"] = rk_param_get_int("video.source:enable_object_shape", 0) ? true : false;
-        data["object_detection"]["sensitivity_level"] = rk_param_get_int("ivs:md_sensibility", 2);
-        data["region_of_interest"]["rule"] = rk_param_get_int("roi.3:id", 0);
-        data["region_of_interest"]["shape"] = rk_param_get_string("roi.3:name", "polygon");
+        data["objectDetection"]["type"] = rk_param_get_int("video.source:object_detect_filter", 1);
+        data["objectDetection"]["boundingBox"] = rk_param_get_int("video.source:enable_object_shape", 0) ? true : false;
+        data["objectDetection"]["sensitivityLevel"] = rk_param_get_int("ivs:md_sensibility", 2);
+        data["regionOfInterest"]["rule"] = rk_param_get_int("roi.3:id", 0);
+        data["regionOfInterest"]["shape"] = rk_param_get_string("roi.3:name", "polygon");
         std::string points = rk_param_get_string("roi.3:points", "");
         if (points.empty()) {
-            data["region_of_interest"]["points"] = nlohmann::json::array();
+            data["regionOfInterest"]["points"] = nlohmann::json::array();
         }
-        else data["region_of_interest"]["points"] = nlohmann::json::parse(points);
+        else data["regionOfInterest"]["points"] = nlohmann::json::parse(points);
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
 }
@@ -572,8 +572,8 @@ static void APIV1_CGI_IndustrialRS485(FCGX_Request &message, nlohmann::json &js)
             data["configuration"]["databits"] = 8;
             data["configuration"]["stopbits"] = 1;
             data["configuration"]["parity"] = "N";
-            data["configuration"]["hardware_flow_control"] = false;
-            data["configuration"]["polling_interval_ms"] = 15000;
+            data["configuration"]["hardwareFlowControl"] = false;
+            data["configuration"]["pollingIntervalMs"] = 15000;
             data["devices"].push_back(nlohmann::json::object());
         }
     }
@@ -590,13 +590,13 @@ static void APIV1_CGI_IndustriaQRBarcode(FCGX_Request &message, nlohmann::json &
         else {
             /* Assign peasudo values */
             data["enabled"] = false;
-            data["configuration"]["device_type"] = 1;
+            data["configuration"]["deviceType"] = 1;
             data["configuration"]["height"] = 0;
             data["configuration"]["width"] = 0;
-            data["configuration"]["x"] = 0;
-            data["configuration"]["y"] = 0;
+            data["configuration"]["positionX"] = 0;
+            data["configuration"]["positionY"] = 0;
             data["configuration"]["channel"] = 0;
-            data["configuration"]["polling_interval_ms"] = 15000;
+            data["configuration"]["pollingIntervalMs"] = 15000;
         }
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
@@ -615,10 +615,10 @@ static void APIV1_CGI_IndustriaEndpoint(FCGX_Request &message, nlohmann::json &j
             data["protocol"] = "https";
             data["endpoint"] = "https://customer-server.com/api/device-data";
             data["port"] = 443;
-            data["report_periodic_ms"] = 15000;
+            data["reportPeriodicMs"] = 15000;
             data["tls"]["enabled"] = false;
-            data["tls"]["verify_peer"] = false;
-            data["tls"]["ca_certificate"] = "";
+            data["tls"]["verifyPeer"] = false;
+            data["tls"]["caCertificate"] = "";
         }
     }
     HTTP_ResponseDataAsJSON(message, 200, js.dump());
